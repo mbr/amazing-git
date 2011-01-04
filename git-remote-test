@@ -5,6 +5,8 @@ import sys
 import logbook
 
 from dulwich import pack
+from dulwich.object_store import DiskObjectStore
+from dulwich.repo import Repo
 
 log = logbook.Logger('git-remote-test')
 stdin_log = logbook.Logger('stdin')
@@ -14,7 +16,38 @@ def required_capability(f):
 	f.git_required = True
 	return f
 
+import cPickle as pickle
+class SimpleStorage(object):
+	def __init__(self, filename):
+		self.filename = filename
+		self.d = {}
+
+		self._load()
+
+	def _save(self):
+		with file(self.filename, 'w') as f:
+			pickle.dump(self.d, f)
+
+	def _load(self):
+		if not os.path.exists(self.filename): return
+		with file(self.filename) as f:
+			self.d = pickle.load(f)
+
+	def __setitem__(self, key, value):
+		self.d[key] = value
+		self._save()
+
+	def __getitem__(self, key):
+		return self.d[key]
+
+	def keys(self):
+		return self.d.keys()
+
+	def iteritems(self):
+		return self.d.iteritems()
+
 class GitRemoteHandler(object):
+	supported_options = []
 	def __init__(self, loghandler = None):
 		self.loghandler = loghandler or logbook.NullHandler()
 		self.args = sys.argv[1:]
@@ -25,6 +58,8 @@ class GitRemoteHandler(object):
 			self.remote_address = self.args[1]
 			if self.args[1] != self.args[0]: self.remote_name = self.args[0]
 
+		self.options = {}
+
 	def handle_command(self, line):
 		args = line.split(' ')
 		command = args.pop(0)
@@ -32,7 +67,11 @@ class GitRemoteHandler(object):
 		stdin_log.debug(line)
 		if not hasattr(self, 'git_' + command): raise AttributeError('git requested an unsupported command: %s' % command)
 		getattr(self, 'git_' + command)(*args)
-		sys.stdout.flush()
+		try:
+			sys.stdout.flush()
+		except IOError:
+			# git closed the connection
+			pass
 
 	def git_capabilities(self):
 		caps = []
@@ -128,5 +167,47 @@ class TestServer(GitSmartServer):
 		# we're done now
 		# not entirely sure, but there seems to be no acknowledgement from the server
 
+
+class TestHandler(GitRemoteHandler):
+#	supported_options = ['dry-run']
+	# FIXME: use fallback to use smart protocol for what we can actually push?
+
+	def __init__(self, ref_store, object_store, *args, **kwargs):
+		super(TestHandler, self).__init__(*args, **kwargs)
+		self.ref_store = ref_store
+		self.object_store = object_store
+
+	def git_list(self, *args):
+		for name, hash in self.ref_store.iteritems():
+			print '%s %s' % (hash, name)
+		print
+
+	def git_push(self, target):
+		log.debug('push args: %s' % target)
+		src, dst = target.split(':')
+		log.debug('push: %s to %s' % (src, dst))
+
+		# use git-rev-list to find out what we need to transfer
+		# FIXME: be smart
+		local = Repo('.git')		
+
+		# do the actual push
+		print "ok %s" % dst
+		print
+
+	def git_option(self, name, value):
+		if name in self.supported_options:
+			self.options[name] = value
+			log.debug('option %s: %s' % (name, value))
+			print "ok"
+		else:
+			log.debug('option %s unsupported' % name)
+			print "unsupported"
+
 if __name__ == '__main__':
-	GitServerHandler(server = TestServer(), loghandler = logbook.FileHandler('/home/rescue/git-stuff/git-remote-test.log', encoding = 'utf-8')).run()
+	ref_store = SimpleStorage('test-ref-store.pickle')
+	object_store = SimpleStorage('test-object-store.pickle')
+
+	loghandler = logbook.FileHandler('/home/rescue/git-stuff/git-remote-test.log', encoding = 'utf-8')
+	#GitServerHandler(server = TestServer(), loghandler = loghandler).run()
+	TestHandler(ref_store, object_store, loghandler).run()
