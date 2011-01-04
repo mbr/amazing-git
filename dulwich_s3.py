@@ -1,5 +1,64 @@
+# for the object store
 from dulwich.object_store import BaseObjectStore, ShaFile
 from cStringIO import StringIO
+
+# for the refstore
+from dulwich.repo import RefsContainer
+
+class AmazonS3RefsContainer(RefsContainer):
+	def __init__(self, bucket, prefix = '.git/'):
+		self.bucket = bucket
+		self.prefix = prefix.rstrip('/')
+
+	def _calc_ref_path(self, ref):
+		return '%s/%s' % (self.prefix, ref)
+
+	def allkeys(self):
+		path_prefix = '%s/refs' % self.prefix
+		sublen = len(path_prefix) - 4
+		return [k.name[sublen:] for k in self.bucket.get_all_keys(prefix = path_prefix) if not k.name.endswith('/')]
+
+	def read_loose_ref(self, name):
+		k = self.bucket.get_key(self._calc_ref_path(name))
+		if not k: return None
+
+		return k.get_contents_as_string()
+
+	def get_packed_refs(self):
+		return {}
+
+	def set_symbolic_ref(self, name, other):
+		# TODO: support symbolic refs
+		raise NotImplementedError(self.set_symbolic_ref)
+
+	def set_if_equals(self, name, old_ref, new_ref):
+		if old_ref is not None and self.read_loose_ref(name) != old_ref:
+			return False
+
+		realname, _ = self._follow(name)
+
+		# set ref (set_if_equals is actually the low-level setting function)
+		k = self.bucket.new_key(self._calc_ref_path(name))
+		k.set_contents_from_string(new_ref)
+		return True
+
+	def add_if_new(self, name, ref):
+		if None != self.read_loose_ref(name):
+			return False
+
+		self.set_if_equals(name, None, ref)
+		return True
+
+	def remove_if_equals(self, name, old_ref):
+		k = self.bucket.get_key(self._calc_ref_path(name))
+		if None == k: return True
+
+		if old_ref is not None and k.get_contents_as_string() != old_ref:
+			return False
+		
+		k.delete()
+		return True
+
 
 class AmazonS3ObjectStore(BaseObjectStore):
 	"""Uses Amazon S3 as the storage backend (through boto)."""
