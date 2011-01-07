@@ -104,7 +104,6 @@ class AmazonS3ObjectStore(BaseObjectStore):
 		"""Adds object the repository. Adding an object that already exists will
 		   still cause it to be uploaded, overwriting the old with the same data."""
 		k = self.bucket.new_key(self._calc_object_path(obj.sha().hexdigest()))
-		print k
 
 		# actual upload
 		k.set_contents_from_string(obj.as_legacy_object())
