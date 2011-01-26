@@ -23,7 +23,7 @@ def get_ordered_versions(bucket, path):
 	# note: DeleteMarkers do not have key attribute, rather a 'name' attribute
 	#       these are merged if they are next to each other and drop out on either end
 	#       on the version list. however, the last delete marker is kept
-	keys = filter(lambda k: k.key == path if hasattr(k, 'key') else k.name == path, bucket.get_all_versions(prefix = path))
+	keys = [k for k in bucket.get_all_versions(prefix = path) if hasattr(k, 'key') and k.key == path or k.name == path]
 
 	# sort by timestamp, ascending
 	keys.sort(lambda a, b: cmp(dateutil.parser.parse(a.last_modified), dateutil.parser.parse(b.last_modified)))
