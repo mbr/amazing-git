@@ -115,59 +115,6 @@ class GitServerHandler(GitRemoteHandler):
 		sys.stdin.close()
 
 
-class GitSmartServer(object):
-	def send_line(self, line):
-		assert line
-
-		l = len(line) + 4 + len(os.linesep)
-		if l > 0xFFFF: raise Exception('line too long (%x)' % l)
-		output = '%04x%s%s' % (l, line, os.linesep)
-		sys.stdout.write(output)
-		stdout_log.debug(output)
-
-	def send_eof(self):
-		line = '0000' + os.linesep
-		sys.stdout.write(line)
-		stdout_log.debug(line)
-
-	def recv_line(self):
-		buf = sys.stdin.read(4)
-		stdin_log.debug('header: ' + buf)
-		if '0000' == buf: return '';
-
-		line = sys.stdin.read(int(buf, 16)-4)
-		stdin_log.debug('line: %s' % line)
-		return line
-
-
-class TestServer(GitSmartServer):
-	def git_receive_pack(self, *args):
-		# FIXME: send what we have
-		self.send_eof()
-		sys.stdout.flush()
-
-		while True:
-			line = self.recv_line()
-			if '' == line: break
-
-			# FIXME
-			log.debug('updating branches: %s' % line)
-
-		# pack version and number of objects
-		#version, num_objects = pack.read_pack_header(sys.stdin.read)
-		#log.debug('expecting %d objects' % num_objects)
-
-		#
-		#obj_type, obj_data, compressed_size, tail = pack.unpack_object
-
-		packs = pack.PackStreamReader(sys.stdin.read)
-		for header, content, comp_len in packs.read_objects():
-			log.debug('header: %x comp_len: %d actual length: %d' % (header, comp_len, len("".join(content))))
-
-		# we're done now
-		# not entirely sure, but there seems to be no acknowledgement from the server
-
-
 class TestHandler(GitRemoteHandler):
 #	supported_options = ['dry-run']
 	# FIXME: use fallback to use smart protocol for what we can actually push?
