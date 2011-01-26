@@ -14,11 +14,14 @@ debug = log.debug
 info = log.info
 
 def has_versioning(bucket):
+	"""Returns 'True' if bucket has versioning, False otherwise."""
 	vers = bucket.get_versioning_status()
 	return 'Versioning' in vers and vers['Versioning'] == 'Enabled'
 
 
 def get_ordered_versions(bucket, path):
+	"""Get all versions of a path on an S3 bucket, ordered by their 'last-modified'
+	   timestamp in ascending order."""
 	# check all versions, check if path matches
 	# note: DeleteMarkers do not have key attribute, rather a 'name' attribute
 	#       these are merged if they are next to each other and drop out on either end
@@ -32,12 +35,21 @@ def get_ordered_versions(bucket, path):
 
 
 def filter_delete_markers(l):
+	"""Remove all S3 DeleteMarker instances from a list (returns
+	   a generator."""
 	for i in l:
 		if isinstance(i, DeleteMarker): continue
 		yield i
 
 
 class S3Lock(object):
+	"""S3 Lock based on versioning.
+
+	A locking mechanism for amazon S3 that leverages the versioning feature to create
+	locks. A new version of a file is uploaded first, then checks if the oldest
+	non-deleted version is the same as the one uploaded. Once it 'acquires' the lock
+	this way, runs the critical section, the removes its version."""
+
 	def __init__(self, bucket, name, interval = 0.5):
 		self.bucket = bucket
 		self.name = name
