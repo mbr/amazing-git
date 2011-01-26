@@ -104,17 +104,6 @@ class GitRemoteHandler(object):
 					break
 
 
-class GitServerHandler(GitRemoteHandler):
-	def __init__(self, server, *args, **kwargs):
-		super(GitServerHandler, self).__init__(*args, **kwargs)
-		self.server = server
-
-	def git_connect(self, *args):
-		print # "all ok"
-		getattr(self.server, args[0].replace('-','_'))(*args[1:])
-		sys.stdin.close()
-
-
 class TestHandler(GitRemoteHandler):
 #	supported_options = ['dry-run']
 	# FIXME: use fallback to use smart protocol for what we can actually push?
