@@ -157,7 +157,7 @@ class TestServer(GitSmartServer):
 		#version, num_objects = pack.read_pack_header(sys.stdin.read)
 		#log.debug('expecting %d objects' % num_objects)
 
-		# 
+		#
 		#obj_type, obj_data, compressed_size, tail = pack.unpack_object
 
 		packs = pack.PackStreamReader(sys.stdin.read)
@@ -189,7 +189,7 @@ class TestHandler(GitRemoteHandler):
 
 		# use git-rev-list to find out what we need to transfer
 		# FIXME: be smart
-		local = Repo('.git')		
+		local = Repo('.git')
 
 		# do the actual push
 		print "ok %s" % dst
