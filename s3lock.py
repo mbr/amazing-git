@@ -3,6 +3,7 @@
 
 import dateutil.parser
 import time
+import uuid
 
 from boto.s3.key import Key
 from boto.s3.deletemarker import DeleteMarker
@@ -12,6 +13,10 @@ import logbook
 log = logbook.Logger('S3VersionLock')
 debug = log.debug
 info = log.info
+
+def cmp_by_timestamp(a, b):
+	"""Compare two S3 keys by timestamp, ascending."""
+	return cmp(dateutil.parser.parse(a.last_modified), dateutil.parser.parse(b.last_modified))
 
 def has_versioning(bucket):
 	"""Returns 'True' if bucket has versioning, False otherwise."""
@@ -29,7 +34,7 @@ def get_ordered_versions(bucket, path):
 	keys = [k for k in bucket.get_all_versions(prefix = path) if hasattr(k, 'key') and k.key == path or k.name == path]
 
 	# sort by timestamp, ascending
-	keys.sort(lambda a, b: cmp(dateutil.parser.parse(a.last_modified), dateutil.parser.parse(b.last_modified)))
+	keys.sort(cmp_by_timestamp)
 
 	return keys
 
@@ -86,18 +91,70 @@ class S3VersionLock(object):
 		info('Released lock %s on %r' % (self.name, self.bucket))
 
 
+class S3KeyLock(object):
+	"""S3 Lock based on timestamps.
+
+	This S3 locking mechanism relies on S3 timestamps being synchronized
+	and read-after-write consistency. To acquire a lock, a file with a
+	random ID is created. Afterwards, all possible lock files are retrieved
+	and if the random ID that was generated is the one with the lowest
+	timestamp, we have the lock. Otherwise wait for others to finish their
+	work and release their lock.
+
+	Works well on non-versionend buckets, could work, but not tested on,
+	buckets with versioning enabled.
+	"""
+	def __init__(self, bucket, prefix = '', interval = 0.5):
+		self.bucket = bucket
+		self.prefix = prefix
+		assert(not has_versioning(self.bucket))
+		self.interval = 0.5
+
+	def __enter__(self):
+		debug('Trying to acquire %s on %r' % (self.prefix, self.bucket))
+
+		# generate a UUID
+		lock_id = uuid.uuid1()
+		debug('Lock ID: %s' % lock_id)
+
+		# create file
+		self.lock_key = Key(self.bucket)
+		self.lock_key.key = '%s/%s.lock' % (self.prefix, lock_id)
+		self.lock_key.set_contents_from_string('')
+
+		# at this point, it's possible to maybe get around eventual consistency
+		# by waiting for out file to appear? only the amazons know!
+
+		while True:
+			keys = [k for k in self.bucket.get_all_keys(prefix = self.prefix) if k.key.endswith('.lock')]
+
+			# sort by timestamp, ascending
+			keys.sort(cmp_by_timestamp)
+			debug('Lock-queue: *%s' % ', '.join((k.key for k in keys)))
+
+			if keys[0].key == self.lock_key.key:
+				info('Acquired %s' % self.prefix)
+				break
+
+			debug('Could not acquire lock, sleeping for %s seconds' % self.interval)
+			time.sleep(self.interval)
+
+	def __exit__(self, type, value, traceback):
+		self.lock_key.delete()
+		info('Released lock %s on %r' % (self.lock_key.key, self.bucket))
+
 if '__main__' == __name__:
 	from secretkey import *
 	from boto.s3.connection import S3Connection
 	import sys
 
 	conn = S3Connection(key_id, access_key)
-	bucketname = 'mbr-locktest_2'
+	bucketname = 'mbr-nvbucket'
 
 	# get bucket
 	bucket = conn.get_bucket(bucketname)
 
-	with S3VersionLock(bucket, 'my_amazing_lock'):
+	with S3KeyLock(bucket, 'my_amazing_lock'):
 		print "RUNNING CRITICAL SECTION"
 		print "Press enter to end critical section"
 		sys.stdin.readline()
