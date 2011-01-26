@@ -12,10 +12,6 @@ log = logbook.Logger('git-remote-test')
 stdin_log = logbook.Logger('stdin')
 stdout_log = logbook.Logger('stdout')
 
-def required_capability(f):
-	f.git_required = True
-	return f
-
 
 class GitRemoteHandler(object):
 	supported_options = []
@@ -111,7 +107,7 @@ class TestHandler(GitRemoteHandler):
 			log.debug('option %s unsupported' % name)
 			print "unsupported"
 
+
 if __name__ == '__main__':
 	loghandler = logbook.FileHandler('git-remote-test.log', encoding = 'utf-8')
-	#GitServerHandler(server = TestServer(), loghandler = loghandler).run()
 	TestHandler(None, None, loghandler).run()
