@@ -15,7 +15,8 @@ info = log.info
 
 def has_versioning(bucket):
 	"""Returns 'True' if bucket has versioning, False otherwise."""
-	vers = bucket.get_versioning_status() return 'Versioning' in vers and vers['Versioning'] == 'Enabled'
+	vers = bucket.get_versioning_status()
+	return 'Versioning' in vers and vers['Versioning'] == 'Enabled'
 
 
 def get_ordered_versions(bucket, path):
