@@ -208,6 +208,6 @@ if __name__ == '__main__':
 	ref_store = SimpleStorage('test-ref-store.pickle')
 	object_store = SimpleStorage('test-object-store.pickle')
 
-	loghandler = logbook.FileHandler('/home/rescue/git-stuff/git-remote-test.log', encoding = 'utf-8')
+	loghandler = logbook.FileHandler('git-remote-test.log', encoding = 'utf-8')
 	#GitServerHandler(server = TestServer(), loghandler = loghandler).run()
 	TestHandler(ref_store, object_store, loghandler).run()
