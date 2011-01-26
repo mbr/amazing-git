@@ -57,7 +57,7 @@ class S3Lock(object):
 
 		while True:
 			keys = list(filter_delete_markers(get_ordered_versions(self.bucket, self.lock_key.key)))
-			debug('Lock-queue: *%s' % ', '.join(map(lambda k: k.version_id, keys)))
+			debug('Lock-queue: *%s' % ', '.join((k.version_id for k in keys)))
 
 			if keys[0].version_id == self.lock_key.version_id:
 				info('Acquired %s' % self.name)
