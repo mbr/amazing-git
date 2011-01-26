@@ -19,8 +19,8 @@ def cmp_keys(a, b):
 
 	If they are equal, fall back on version_id or key.
 	"""
-	return cmp(dateutil.parser.parse(a.last_modified), dateutil.parser.parse(b.last_modified)) or
-	       cmp(a.version_id, b.version_id) or
+	return cmp(dateutil.parser.parse(a.last_modified), dateutil.parser.parse(b.last_modified)) or \
+	       cmp(a.version_id, b.version_id) or \
 	       cmp(a.key, b.key)
 
 
