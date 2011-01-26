@@ -14,9 +14,15 @@ log = logbook.Logger('S3VersionLock')
 debug = log.debug
 info = log.info
 
-def cmp_by_timestamp(a, b):
-	"""Compare two S3 keys by timestamp, ascending."""
-	return cmp(dateutil.parser.parse(a.last_modified), dateutil.parser.parse(b.last_modified))
+def cmp_keys(a, b):
+	"""Compare two S3 keys by timestamp, ascending.
+
+	If they are equal, fall back on version_id or key.
+	"""
+	return cmp(dateutil.parser.parse(a.last_modified), dateutil.parser.parse(b.last_modified)) or
+	       cmp(a.version_id, b.version_id) or
+	       cmp(a.key, b.key)
+
 
 def has_versioning(bucket):
 	"""Returns 'True' if bucket has versioning, False otherwise."""
@@ -34,7 +40,7 @@ def get_ordered_versions(bucket, path):
 	keys = [k for k in bucket.get_all_versions(prefix = path) if hasattr(k, 'key') and k.key == path or k.name == path]
 
 	# sort by timestamp, ascending
-	keys.sort(cmp_by_timestamp)
+	keys.sort(cmp_keys)
 
 	return keys
 
@@ -129,7 +135,7 @@ class S3KeyLock(object):
 			keys = [k for k in self.bucket.get_all_keys(prefix = self.prefix) if k.key.endswith('.lock')]
 
 			# sort by timestamp, ascending
-			keys.sort(cmp_by_timestamp)
+			keys.sort(cmp_keys)
 			debug('Lock-queue: *%s' % ', '.join((k.key for k in keys)))
 
 			if keys[0].key == self.lock_key.key:
