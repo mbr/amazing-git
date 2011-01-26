@@ -9,14 +9,13 @@ from boto.s3.deletemarker import DeleteMarker
 
 import logbook
 
-log = logbook.Logger('S3Lock')
+log = logbook.Logger('S3VersionLock')
 debug = log.debug
 info = log.info
 
 def has_versioning(bucket):
 	"""Returns 'True' if bucket has versioning, False otherwise."""
-	vers = bucket.get_versioning_status()
-	return 'Versioning' in vers and vers['Versioning'] == 'Enabled'
+	vers = bucket.get_versioning_status() return 'Versioning' in vers and vers['Versioning'] == 'Enabled'
 
 
 def get_ordered_versions(bucket, path):
@@ -42,7 +41,7 @@ def filter_delete_markers(l):
 		yield i
 
 
-class S3Lock(object):
+class S3VersionLock(object):
 	"""S3 Lock based on versioning.
 
 	A locking mechanism for amazon S3 that leverages the versioning feature to create
@@ -97,7 +96,7 @@ if '__main__' == __name__:
 	# get bucket
 	bucket = conn.get_bucket(bucketname)
 
-	with S3Lock(bucket, 'my_amazing_lock'):
+	with S3VersionLock(bucket, 'my_amazing_lock'):
 		print "RUNNING CRITICAL SECTION"
 		print "Press enter to end critical section"
 		sys.stdin.readline()
