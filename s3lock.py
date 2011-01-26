@@ -1,19 +1,17 @@
 #!/usr/bin/env python
 # coding=utf8
 
-from secretkey import *
-
-from boto.s3.connection import S3Connection
-from boto.s3.key import Key
-from boto.s3.deletemarker import DeleteMarker
-from boto.exception import S3ResponseError
-
 import dateutil.parser
-
-import uuid
-
 import time
 
+from boto.s3.key import Key
+from boto.s3.deletemarker import DeleteMarker
+
+import logbook
+
+log = logbook.Logger('S3Lock')
+debug = log.debug
+info = log.info
 
 def has_versioning(bucket):
 	vers = bucket.get_versioning_status()
@@ -39,50 +37,55 @@ def filter_delete_markers(l):
 		yield i
 
 
-conn = S3Connection(key_id, access_key)
-bucketname = 'mbr-locktest_2'
+class S3Lock(object):
+	def __init__(self, bucket, name, interval = 0.5):
+		self.bucket = bucket
+		self.name = name
+		self.interval = interval
+		debug('New lock named %s instantiated on %r' % (self.name, self.bucket))
+		assert(has_versioning(bucket))
 
-# delete and create bucket
-#bucket = conn.get_bucket(bucketname)
-#keys = bucket.get_all_versions()
-#print keys
-#conn.delete_bucket(bucketname)
-#bucket = conn.create_bucket(bucketname)
-#bucket.configure_versioning(True)
-#print "BUCKET RECREATED"
+	def __enter__(self):
+		info('Trying to acquire %s' % self.name)
 
-# get bucket
-bucket = conn.get_bucket(bucketname)
-assert(has_versioning(bucket))
+		self.lock_key = Key(self.bucket)
+		self.lock_key.key = self.name
+
+		self.lock_key.set_contents_from_string('')
+		# version id of self.lock_key is now the one we set
+		debug('Uploaded lock request, version id %s' % self.lock_key.version_id)
+
+		while True:
+			keys = list(filter_delete_markers(get_ordered_versions(self.bucket, self.lock_key.key)))
+			debug('Lock-queue: *%s' % ', '.join(map(lambda k: k.version_id, keys)))
+
+			if keys[0].version_id == self.lock_key.version_id:
+				info('Acquired %s' % self.name)
+				break
+
+			debug('Could not acquire lock, sleeping for %s seconds' % self.interval)
+			time.sleep(self.interval)
+
+		# we hold the lock, code runs
+
+	def __exit__(self, type, value, traceback):
+		# release the lock
+		self.lock_key.delete()
+		info('Released lock %s on %r' % (self.name, self.bucket))
 
 
 if '__main__' == __name__:
-	# create the key
-	lock_key = Key(bucket)
-	lock_key.key = 'testing_key'
+	from secretkey import *
+	from boto.s3.connection import S3Connection
+	import sys
 
-	# no uuids required - use the version key as the id
-	#lock_id = uuid.uuid1()
-	#print "lock_id: %s" % lock_id
-	#lock_key.set_contents_from_string(lock_id)
+	conn = S3Connection(key_id, access_key)
+	bucketname = 'mbr-locktest_2'
 
-	lock_key.set_contents_from_string('')
-	print "version_id: %s" % lock_key.version_id
+	# get bucket
+	bucket = conn.get_bucket(bucketname)
 
-	while True:
-		keys = get_ordered_versions(bucket, lock_key.key)
-
-		# check oldest version
-		print "oldest key:",keys[0].version_id
-		if keys[0].version_id == lock_key.version_id:
-			print "WE GOT THE LOCK"
-			break
-
-		print "sleeping, waiting for lock to be available..."
-		time.sleep(1)
-
-	print "running critical section"
-	# critical section goes here
-
-	# clear lock
-	lock_key.delete()
+	with S3Lock(bucket, 'my_amazing_lock'):
+		print "RUNNING CRITICAL SECTION"
+		print "Press enter to end critical section"
+		sys.stdin.readline()
