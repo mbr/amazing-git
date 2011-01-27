@@ -40,6 +40,7 @@ class GitRemoteHandler(object):
 			if self.args[1] != self.args[0]: self.remote_name = self.args[0]
 
 		self.options = {}
+		self._log = logbook.Logger('gitutil.GitRemoteHandler')
 
 	def handle_command(self, line):
 		"""Dispatch command.
@@ -51,7 +52,7 @@ class GitRemoteHandler(object):
 		args = line.split(' ')
 		command = args.pop(0)
 
-		log.debug('on stdin: %s' % line)
+		self._log.debug('on stdin: %s' % line)
 		if not hasattr(self, 'git_' + command): raise AttributeError('git requested an unsupported command: %s' % command)
 		getattr(self, 'git_' + command)(*args)
 		try:
@@ -72,7 +73,7 @@ class GitRemoteHandler(object):
 			if name.startswith('git_') and callable(attr):
 				caps.append('*' + name[4:] if hasattr(attr, 'git_required') else name[4:])
 
-		log.debug('sending capabilities: %s' % caps)
+		self._log.debug('sending capabilities: %s' % caps)
 		for c in caps: print c
 
 		# end with a blank line
@@ -85,10 +86,10 @@ class GitRemoteHandler(object):
 		in supported_options are rejected with an "unsupported" reply."""
 		if name in self.supported_options:
 			self.options[name] = value
-			log.debug('option %s: %s' % (name, value))
+			self._log.debug('option %s: %s' % (name, value))
 			print "ok"
 		else:
-			log.debug('option %s unsupported' % name)
+			self._log.debug('option %s unsupported' % name)
 			print "unsupported"
 
 	def run(self):
@@ -96,9 +97,9 @@ class GitRemoteHandler(object):
 
 		Blocks and reads commands, until stdin is closed, EOF is encountered or
 		an empty line is sent."""
-		log.debug('spawned process: %d' % os.getpid())
-		log.debug('remote name: %s' % self.remote_name)
-		log.debug('remote address: %s' % self.remote_address)
+		self._log.debug('spawned process: %d' % os.getpid())
+		self._log.debug('remote name: %s' % self.remote_name)
+		self._log.debug('remote address: %s' % self.remote_address)
 		while not sys.stdin.closed:
 			line = sys.stdin.readline()
 			if '' == line: break # EOF
@@ -106,6 +107,6 @@ class GitRemoteHandler(object):
 			try:
 				self.handle_command(line.rstrip(os.linesep))
 			except Exception, e:
-				log.exception(e)
+				self._log.exception(e)
 				print >>sys.stderr, os.path.basename(sys.argv[0]) + ':', e
 				break
