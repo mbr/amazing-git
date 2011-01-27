@@ -8,15 +8,12 @@ from dulwich import pack
 from dulwich.object_store import DiskObjectStore
 from dulwich.repo import Repo
 
-log = logbook.Logger('git-remote-test')
-stdin_log = logbook.Logger('stdin')
-stdout_log = logbook.Logger('stdout')
+log = logbook.Logger('git-remote-s3')
 
 
 class GitRemoteHandler(object):
 	supported_options = []
-	def __init__(self, loghandler = None):
-		self.loghandler = loghandler or logbook.NullHandler()
+	def __init__(self):
 		self.args = sys.argv[1:]
 
 		self.remote_name = None
@@ -31,7 +28,7 @@ class GitRemoteHandler(object):
 		args = line.split(' ')
 		command = args.pop(0)
 
-		stdin_log.debug(line)
+		log.debug('on stdin: %s' % line)
 		if not hasattr(self, 'git_' + command): raise AttributeError('git requested an unsupported command: %s' % command)
 		getattr(self, 'git_' + command)(*args)
 		try:
@@ -55,20 +52,19 @@ class GitRemoteHandler(object):
 		print
 
 	def run(self):
-		with self.loghandler.applicationbound():
-			log.debug('spawned process: %d' % os.getpid())
-			log.debug('remote name: %s' % self.remote_name)
-			log.debug('remote address: %s' % self.remote_address)
-			while not sys.stdin.closed:
-				line = sys.stdin.readline()
-				if '' == line: break # EOF
-				if '' == line.strip(): break # empty line ends as well
-				try:
-					self.handle_command(line.rstrip(os.linesep))
-				except Exception, e:
-					log.exception(e)
-					print >>sys.stderr, os.path.basename(sys.argv[0]) + ':', e
-					break
+		log.debug('spawned process: %d' % os.getpid())
+		log.debug('remote name: %s' % self.remote_name)
+		log.debug('remote address: %s' % self.remote_address)
+		while not sys.stdin.closed:
+			line = sys.stdin.readline()
+			if '' == line: break # EOF
+			if '' == line.strip(): break # empty line ends as well
+			try:
+				self.handle_command(line.rstrip(os.linesep))
+			except Exception, e:
+				log.exception(e)
+				print >>sys.stderr, os.path.basename(sys.argv[0]) + ':', e
+				break
 
 
 class TestHandler(GitRemoteHandler):
@@ -110,4 +106,4 @@ class TestHandler(GitRemoteHandler):
 
 if __name__ == '__main__':
 	loghandler = logbook.FileHandler('git-remote-test.log', encoding = 'utf-8')
-	TestHandler(None, None, loghandler).run()
+	TestHandler(None, None).run()
