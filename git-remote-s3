@@ -88,7 +88,10 @@ class S3Handler(GitRemoteHandler):
 		return self._object_store
 
 	def git_list(self, *args):
-		for name, hash in self.ref_store.iteritems():
+		log.debug('listing refs')
+		for name in self.ref_store.allkeys():
+			hash = self.ref_store[name]
+			log.debug('ref found: %s %s' % name)
 			print '%s %s' % (hash, name)
 		print
 
