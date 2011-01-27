@@ -133,7 +133,7 @@ class S3ObjectStore(BaseObjectStore):
 		k.set_contents_from_string(obj.as_legacy_object())
 
 	def add_objects(self, objects):
-		for obj in objects:
+		for obj, path in objects:
 			self.add_object(obj)
 
 	def _calc_object_path(self, hexsha):
