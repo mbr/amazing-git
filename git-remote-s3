@@ -42,9 +42,12 @@ class S3Handler(GitRemoteHandler):
 		if not self.remote_key: HandlerException('No access key specified. Cannot access bucket %s' % self.remote_bucket)
 
 		# load a secret for a specific key
-		self.remote_secret = remote_s3['secret'] or get_from_sections(conf, conf_sections, '%s_secret' % self.remote_key)
+		self.remote_secret = remote_s3['secret'] or get_from_sections(conf, conf_sections, '%s-secret' % self.remote_key)
 		if not self.remote_secret: raise HandlerException('No secret key specified. Cannot access bucket %s' % self.remote_bucket)
-		raise Exception('FIXME')
+
+		log.debug('loaded credentials, final url: http://%s:%s@%s:%s' % (self.remote_key, self.remote_secret, self.remote_bucket, self.remote_prefix))
+
+		raise Exception('DONE')
 
 	def git_list(self, *args):
 		for name, hash in self.ref_store.iteritems():
