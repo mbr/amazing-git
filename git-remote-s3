@@ -6,9 +6,15 @@ from dulwich import pack
 from dulwich.object_store import DiskObjectStore
 from dulwich.repo import Repo
 
-from gitutil import GitRemoteHandler
+from gitutil import GitRemoteHandler, parse_s3_url, HandlerException, merge_git_config
 
 log = logbook.Logger('git-remote-s3')
+
+def get_from_sections(conf, sections, key):
+	log.debug('Loading %s from sections %r' % (key, sections))
+	for section in sections:
+		if section in conf and key in conf[section]:
+			return conf[section][key]
 
 
 class S3Handler(GitRemoteHandler):
@@ -19,6 +25,26 @@ class S3Handler(GitRemoteHandler):
 		super(S3Handler, self).__init__(*args, **kwargs)
 		self.ref_store = ref_store
 		self.object_store = object_store
+
+		# parse URL
+		remote_s3 = parse_s3_url(self.remote_address)
+		log.debug('Remote URL %s parsed to %s' % (self.remote_address, remote_s3))
+
+		# load git configuration
+		conf = merge_git_config()
+
+		# the sections in gut config files we are reading
+		conf_sections = ['remote "%s"' % self.remote_name, 's3']
+
+		self.remote_bucket = remote_s3['bucket']
+		self.remote_prefix = remote_s3['prefix'] or ''
+		self.remote_key = remote_s3['key'] or get_from_sections(conf, conf_sections, 'key')
+		if not self.remote_key: HandlerException('No access key specified. Cannot access bucket %s' % self.remote_bucket)
+
+		# load a secret for a specific key
+		self.remote_secret = remote_s3['secret'] or get_from_sections(conf, conf_sections, '%s_secret' % self.remote_key)
+		if not self.remote_secret: raise HandlerException('No secret key specified. Cannot access bucket %s' % self.remote_bucket)
+		raise Exception('FIXME')
 
 	def git_list(self, *args):
 		for name, hash in self.ref_store.iteritems():
@@ -40,5 +66,10 @@ class S3Handler(GitRemoteHandler):
 
 
 if __name__ == '__main__':
-	loghandler = logbook.FileHandler('git-remote-test.log', encoding = 'utf-8')
-	S3Handler(None, None).run()
+	try:
+		loghandler = logbook.FileHandler('git-remote-test.log', encoding = 'utf-8')
+		S3Handler(None, None).run()
+	except HandlerException, e:
+		log.critical(e)
+	except Exception, e:
+		log.exception(e)

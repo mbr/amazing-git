@@ -5,9 +5,16 @@ import sys
 import os
 import re
 
+import git # GitPython
+
 import logbook
 
+
 log = logbook.Logger('gitutil')
+
+
+class HandlerException(Exception): pass
+
 
 class GitRemoteHandler(object):
 	"""A standalone git-remote-helper handler.
@@ -140,3 +147,14 @@ def parse_s3_url(url):
 	m = s3_url_re.match(url)
 	if not m: raise Exception('Not a valid S3 URL: %s' % url)
 	return m.groupdict()
+
+
+def merge_git_config(config_files = ['.git/config', '~/.gitconfig', '/etc/gitconfig']):
+	conf = {}
+	for cf in reversed(config_files):
+		p = git.config.GitConfigParser(os.path.expanduser(cf))
+		for sect in p.sections():
+			for key, value in p.items(sect):
+				conf.setdefault(sect, {})[key] = value
+
+	return conf
