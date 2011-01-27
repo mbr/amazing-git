@@ -38,15 +38,6 @@ class S3Handler(GitRemoteHandler):
 		print "ok %s" % dst
 		print
 
-	def git_option(self, name, value):
-		if name in self.supported_options:
-			self.options[name] = value
-			log.debug('option %s: %s' % (name, value))
-			print "ok"
-		else:
-			log.debug('option %s unsupported' % name)
-			print "unsupported"
-
 
 if __name__ == '__main__':
 	loghandler = logbook.FileHandler('git-remote-test.log', encoding = 'utf-8')

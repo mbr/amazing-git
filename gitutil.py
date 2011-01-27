@@ -9,7 +9,27 @@ import logbook
 log = logbook.Logger('gitutil')
 
 class GitRemoteHandler(object):
+	"""A standalone git-remote-helper handler.
+
+	Parses input from git and translates it into method calls on an instance,
+	also handles the capabilities command.
+
+	To use, subclass from GitRemoteHandler and call the run() method. The handler
+	will read each command and call the corresponding git_ method, i.e. a push
+	command will be handled by a method called git_push. Any arguments space separated
+	arguments are split and passed on.
+
+	The handler also reads the commandline arguments and supplies two attributes,
+	remote_name, containing the name of the remote, and remote_address, containing
+	the remote URI.
+
+	See http://www.kernel.org/pub/software/scm/git/docs/git-remote-helpers.html or
+	git-remote-helpers (1) for details on git-remote-helpers."""
+
 	supported_options = []
+	"""A list of options supported by the remote handler. The "option" command allows
+	the client to set options, supported options are available through the options
+	attribute, unsupported ones will be rejected."""
 	def __init__(self):
 		self.args = sys.argv[1:]
 
@@ -22,6 +42,12 @@ class GitRemoteHandler(object):
 		self.options = {}
 
 	def handle_command(self, line):
+		"""Dispatch command.
+
+		Called by run(), upon reading a command (line), call the corresponding
+		function.
+
+		Tries to flush after a command returns."""
 		args = line.split(' ')
 		command = args.pop(0)
 
@@ -35,6 +61,10 @@ class GitRemoteHandler(object):
 			pass
 
 	def git_capabilities(self):
+		"""Capabilities command.
+
+		Handles the "capabilities" command of git, every function prefixed with "git_" is assumed
+		to be a supported command and sent with the leading "git_" stripped."""
 		caps = []
 		for name in dir(self):
 			if 'git_capabilities' == name: continue
@@ -48,7 +78,24 @@ class GitRemoteHandler(object):
 		# end with a blank line
 		print
 
+	def git_option(self, name, value):
+		"""Handle git options.
+
+		Options set by the git client are stored in the options attribute. Options not found
+		in supported_options are rejected with an "unsupported" reply."""
+		if name in self.supported_options:
+			self.options[name] = value
+			log.debug('option %s: %s' % (name, value))
+			print "ok"
+		else:
+			log.debug('option %s unsupported' % name)
+			print "unsupported"
+
 	def run(self):
+		"""Run, waiting for input.
+
+		Blocks and reads commands, until stdin is closed, EOF is encountered or
+		an empty line is sent."""
 		log.debug('spawned process: %d' % os.getpid())
 		log.debug('remote name: %s' % self.remote_name)
 		log.debug('remote address: %s' % self.remote_address)
