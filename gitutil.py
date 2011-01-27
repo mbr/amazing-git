@@ -3,6 +3,7 @@
 
 import sys
 import os
+import re
 
 import logbook
 
@@ -110,3 +111,32 @@ class GitRemoteHandler(object):
 				self._log.exception(e)
 				print >>sys.stderr, os.path.basename(sys.argv[0]) + ':', e
 				break
+
+
+s3_url_exp = 's3://(?:(?P<key>[^:@]+)(?::(?P<secret>[^@]*))?@)?(?P<bucket>[^:@]+)(?::(?P<prefix>[^@]*))?$'
+"""Regular expression used for matching S3 URLs.
+
+s3 bucket URLs have the following format::
+
+	s3://access_key:secret_key@bucket_name:some_prefix
+
+The access_key, secret_key parts are optional. Thus it is possible to specify an URL without
+any secret information on the commandline::
+
+	s3://access_key@some_bucket:/myprefix
+
+The shortest s3 URL is just a bucket with no prefix::
+
+	s3://mahbukkit
+"""
+
+
+s3_url_re = re.compile(s3_url_exp)
+"""Compiled version of s3_url_exp."""
+
+
+def parse_s3_url(url):
+	"""Parse url with s3_url_exp. If the url does not match, raise an Exception."""
+	m = s3_url_re.match(url)
+	if not m: raise Exception('Not a valid S3 URL: %s' % url)
+	return m.groupdict()
