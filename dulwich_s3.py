@@ -19,7 +19,7 @@ achieved with almost no effort: Since uploaded objects are named after their has
 object file will always have the same contents if it has its name. Upload the same object
 multiple times by accident is therefore not an issue."""
 
-class AmazonS3RefsContainer(RefsContainer):
+class S3RefsContainer(RefsContainer):
 	"""Stores refs in an amazon S3 container.
 
 	Refs are stored in S3 keys the same way as they would on the filesystem, i.e. as
@@ -81,14 +81,14 @@ class AmazonS3RefsContainer(RefsContainer):
 		return True
 
 
-class AmazonS3ObjectStore(BaseObjectStore):
+class S3ObjectStore(BaseObjectStore):
 	"""Storage backend on an Amazon S3 bucket.
 
 	Stores objects on S3, replicating the path structure found usually on a "real"
 	filesystem-based repository. Does not support packs."""
 
 	def __init__(self, bucket, prefix = '.git/'):
-		super(AmazonS3ObjectStore, self).__init__()
+		super(S3ObjectStore, self).__init__()
 		self.bucket = bucket
 		self.prefix = prefix.rstrip('/')
 
