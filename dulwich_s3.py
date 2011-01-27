@@ -5,7 +5,28 @@ from cStringIO import StringIO
 # for the refstore
 from dulwich.repo import RefsContainer
 
+"""Support for dulwich (git) storage structures on Amazon S3.
+
+This module allows replicating the structure of a git repository on an S3 bucket. This
+approach is much lower in overhead then a full fledged file-system, as the core structure
+of git, objects, can be translated 1:1 to S3 keys.
+
+The names of the resulting repository is laid in such a way that, if copied over onto
+an empty git repository, the result is a valid git repository again.
+
+It is recommend to use this on a non-versioned bucket. A good degree of concurreny can be
+achieved with almost no effort: Since uploaded objects are named after their hash, an
+object file will always have the same contents if it has its name. Upload the same object
+multiple times by accident is therefore not an issue."""
+
 class AmazonS3RefsContainer(RefsContainer):
+	"""Stores refs in an amazon S3 container.
+
+	Refs are stored in S3 keys the same way as they would on the filesystem, i.e. as
+	contents of paths like refs/branches/...
+
+	It is up to to the user of the container to regulate access, as there is no locking
+	built-in. While updating a single ref is atomic, doing multiple operations is not."""
 	def __init__(self, bucket, prefix = '.git/'):
 		self.bucket = bucket
 		self.prefix = prefix.rstrip('/')
@@ -55,13 +76,16 @@ class AmazonS3RefsContainer(RefsContainer):
 
 		if old_ref is not None and k.get_contents_as_string() != old_ref:
 			return False
-		
+
 		k.delete()
 		return True
 
 
 class AmazonS3ObjectStore(BaseObjectStore):
-	"""Uses Amazon S3 as the storage backend (through boto)."""
+	"""Storage backend on an Amazon S3 bucket.
+
+	Stores objects on S3, replicating the path structure found usually on a "real"
+	filesystem-based repository. Does not support packs."""
 
 	def __init__(self, bucket, prefix = '.git/'):
 		super(AmazonS3ObjectStore, self).__init__()
@@ -71,7 +95,7 @@ class AmazonS3ObjectStore(BaseObjectStore):
 	def contains_loose(self, sha):
 		"""Check if a particular object is present by SHA1 and is loose."""
 		return bool(self.bucket.get_key(self._calc_object_path(sha)))
-		
+
 	def contains_packed(self, sha):
 		"""Check if a particular object is present by SHA1 and is packed."""
 		return False
