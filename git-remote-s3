@@ -21,7 +21,7 @@ class S3Handler(GitRemoteHandler):
 #	supported_options = ['dry-run']
 	# FIXME: use fallback to use smart protocol for what we can actually push?
 
-	def __init__(self, ref_store, object_store, *args, **kwargs):
+	def __init__(self, *args, **kwargs):
 		super(S3Handler, self).__init__(*args, **kwargs)
 		self.ref_store = ref_store
 		self.object_store = object_store
@@ -47,7 +47,9 @@ class S3Handler(GitRemoteHandler):
 
 		log.debug('loaded credentials, final url: http://%s:%s@%s:%s' % (self.remote_key, self.remote_secret, self.remote_bucket, self.remote_prefix))
 
-		raise Exception('DONE')
+		# intialize ref_store and object_store
+		self.ref_store = None # FIXME
+		self.object_store = None # FIXME
 
 	def git_list(self, *args):
 		for name, hash in self.ref_store.iteritems():
@@ -71,7 +73,7 @@ class S3Handler(GitRemoteHandler):
 if __name__ == '__main__':
 	try:
 		loghandler = logbook.FileHandler('git-remote-test.log', encoding = 'utf-8')
-		S3Handler(None, None).run()
+		S3Handler().run()
 	except HandlerException, e:
 		log.critical(e)
 	except Exception, e:
