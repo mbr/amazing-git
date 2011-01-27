@@ -150,6 +150,11 @@ def parse_s3_url(url):
 
 
 def merge_git_config(config_files = ['.git/config', '~/.gitconfig', '/etc/gitconfig']):
+	"""Loads git configuration files and merges them into a dictionary. Dictionarys
+	have sections as keys, their values being a dictionary of the sections entries.
+
+	Files are merged from back to front, latter inputs are overwritten by those before
+	them."""
 	conf = {}
 	for cf in reversed(config_files):
 		p = git.config.GitConfigParser(os.path.expanduser(cf))
