@@ -11,7 +11,7 @@ from boto.exception import S3ResponseError
 
 from gitutil import GitRemoteHandler, parse_s3_url, HandlerException, merge_git_config
 
-from dulwich_s3 import S3RefsContainer, S3ObjectStore
+from dulwich_s3 import S3Repo
 
 log = logbook.Logger('git-remote-s3')
 
@@ -28,8 +28,6 @@ class S3Handler(GitRemoteHandler):
 
 	# lazy attributes, instantiate when we need them
 	_bucket = None
-	_ref_store = None
-	_object_store = None
 	_remote_repo = None
 
 	def __init__(self, *args, **kwargs):
@@ -73,34 +71,17 @@ class S3Handler(GitRemoteHandler):
 		return self._bucket
 
 	@property
-	def ref_store(self):
-		if not self._ref_store:
-			self._ref_store = S3RefsContainer(self.bucket, self.remote_prefix)
-			log.debug('Instantiated ref container: %r' % self._ref_store)
-
-		return self._ref_store
-
-	@property
-	def object_store(self):
-		if not self._object_store:
-			self._object_store = S3ObjectStore(self.bucket, self.remote_prefix)
-			log.debug('Instantiated object store: %r' % self._object_store)
-
-		return self._object_store
-
-	@property
 	def remote_repo(self):
 		if not self._remote_repo:
-			self._remote_repo = BaseRepo(self.object_store, self.ref_store)
+			self._remote_repo = S3Repo(self.bucket, self.remote_prefix)
 			log.debug('Instantiated repo: %r' % self._remote_repo)
 
 		return self._remote_repo
 
 	def git_list(self, *args):
 		log.debug('listing refs')
-		for name in self.ref_store.allkeys():
-			hash = self.ref_store[name]
-			log.debug('ref found: %s %s' % name)
+		for name, hash in self.remote_repo.get_refs().iteritems():
+			log.debug('ref found: %s %s' % (name, hash))
 			print '%s %s' % (hash, name)
 		print
 
