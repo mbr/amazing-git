@@ -109,13 +109,28 @@ class S3Handler(GitRemoteHandler):
 		src, dst = target.split(':')
 		log.debug('push: %s to %s' % (src, dst))
 
-		# use git-rev-list to find out what we need to transfer
-		# FIXME: be smart
+		# the local repository
 		local = Repo('.git')
 
-		# do the actual push
+		# "push" == we use .fetch() to "fetch" from the local TO the remote ("target"),
+		# then update the refs
+		def determine_wants(heads):
+			wants = [ heads[src] ]
+			log.debug('pushing %r, wants is using %r' % (src, wants))
+			return wants
+
+		log.debug('calling fetch')
+		local.fetch(self.remote_repo, determine_wants, self.report_progress)
+
+		# uploaded everything, update refs next
+		# FIXME: Update refs
+
+		# report pushing went okay
 		print "ok %s" % dst
 		print
+
+	def report_progress(self, msg):
+		log.info(msg)
 
 
 if __name__ == '__main__':
