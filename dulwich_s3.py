@@ -20,7 +20,10 @@ an empty git repository, the result is a valid git repository again.
 It is recommend to use this on a non-versioned bucket. A good degree of concurreny can be
 achieved with almost no effort: Since uploaded objects are named after their hash, an
 object file will always have the same contents if it has its name. Upload the same object
-multiple times by accident is therefore not an issue."""
+multiple times by accident is therefore not an issue.
+
+When manipulating refs however, you will most likely to implement a locking mechanism.
+"""
 
 class S3RefsContainer(RefsContainer):
 	"""Stores refs in an amazon S3 container.
@@ -145,6 +148,9 @@ class S3ObjectStore(BaseObjectStore):
 
 
 class S3Repo(BaseRepo):
+	"""A dulwich repository stored in an S3 bucket. Uses S3RefsContainer and S3ObjectStore
+	as a backend. Does not do any sorts of locking, see documentation of S3RefsContainer
+	and S3ObjectStore for details."""
 	def __init__(self, bucket, prefix = '.git/'):
 		object_store = S3ObjectStore(bucket, prefix)
 		refs = S3RefsContainer(bucket, prefix)
