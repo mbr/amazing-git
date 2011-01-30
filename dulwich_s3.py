@@ -5,6 +5,9 @@ from cStringIO import StringIO
 # for the refstore
 from dulwich.repo import RefsContainer
 
+# for the repo
+from dulwich.repo import BaseRepo
+
 """Support for dulwich (git) storage structures on Amazon S3.
 
 This module allows replicating the structure of a git repository on an S3 bucket. This
@@ -139,3 +142,10 @@ class S3ObjectStore(BaseObjectStore):
 	def _calc_object_path(self, hexsha):
 		path = '%s/objects/%s/%s' % (self.prefix, hexsha[0:2], hexsha[2:40])
 		return path
+
+
+class S3Repo(BaseRepo):
+	def __init__(self, bucket, prefix = '.git/'):
+		object_store = S3ObjectStore(bucket, prefix)
+		refs = S3RefsContainer(bucket, prefix)
+		super(S3Repo, self).__init__(object_store, refs)
