@@ -4,7 +4,7 @@ import logbook
 
 from dulwich import pack
 from dulwich.object_store import DiskObjectStore
-from dulwich.repo import Repo
+from dulwich.repo import Repo, BaseRepo
 
 from boto.s3.connection import S3Connection
 from boto.exception import S3ResponseError
@@ -30,6 +30,7 @@ class S3Handler(GitRemoteHandler):
 	_bucket = None
 	_ref_store = None
 	_object_store = None
+	_remote_repo = None
 
 	def __init__(self, *args, **kwargs):
 		super(S3Handler, self).__init__(*args, **kwargs)
@@ -86,6 +87,14 @@ class S3Handler(GitRemoteHandler):
 			log.debug('Instantiated object store: %r' % self._object_store)
 
 		return self._object_store
+
+	@property
+	def remote_repo(self):
+		if not self._remote_repo:
+			self._remote_repo = BaseRepo(self.object_store, self.ref_store)
+			log.debug('Instantiated repo: %r' % self._remote_repo)
+
+		return self._remote_repo
 
 	def git_list(self, *args):
 		log.debug('listing refs')
