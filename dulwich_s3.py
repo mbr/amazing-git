@@ -25,6 +25,21 @@ multiple times by accident is therefore not an issue.
 When manipulating refs however, you will most likely to implement a locking mechanism.
 """
 
+class S3PrefixFS(object):
+	_prefix = ''
+
+	@property
+	def prefix(self):
+		return self._prefix
+
+	@prefix.setter
+	def prefix(self, value):
+		# strip leading and trailing slashes, remote whitespace
+		self._prefix = value.strip().rstrip('/').lstrip('/').strip()
+		# normalize to one trailing '/'
+		if self._prefix: self._prefix += '/'
+
+
 class S3RefsContainer(RefsContainer):
 	"""Stores refs in an amazon S3 container.
 
