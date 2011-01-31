@@ -40,7 +40,7 @@ class S3PrefixFS(object):
 		if self._prefix: self._prefix += '/'
 
 
-class S3RefsContainer(RefsContainer):
+class S3RefsContainer(RefsContainer, S3PrefixFS):
 	"""Stores refs in an amazon S3 container.
 
 	Refs are stored in S3 keys the same way as they would on the filesystem, i.e. as
@@ -48,16 +48,16 @@ class S3RefsContainer(RefsContainer):
 
 	It is up to to the user of the container to regulate access, as there is no locking
 	built-in. While updating a single ref is atomic, doing multiple operations is not."""
-	def __init__(self, bucket, prefix = '.git/'):
+	def __init__(self, bucket, prefix = '.git'):
 		self.bucket = bucket
-		self.prefix = prefix.rstrip('/')
+		self.prefix = prefix
 		super(S3RefsContainer, self).__init__()
 
 	def _calc_ref_path(self, ref):
-		return '%s/%s' % (self.prefix, ref)
+		return '%s%s' % (self.prefix, ref)
 
 	def allkeys(self):
-		path_prefix = '%s/refs' % self.prefix
+		path_prefix = '%srefs' % self.prefix
 		sublen = len(path_prefix) - 4
 		return [k.name[sublen:] for k in self.bucket.get_all_keys(prefix = path_prefix) if not k.name.endswith('/')]
 
@@ -103,16 +103,16 @@ class S3RefsContainer(RefsContainer):
 		return True
 
 
-class S3ObjectStore(BaseObjectStore):
+class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 	"""Storage backend on an Amazon S3 bucket.
 
 	Stores objects on S3, replicating the path structure found usually on a "real"
 	filesystem-based repository. Does not support packs."""
 
-	def __init__(self, bucket, prefix = '.git/'):
+	def __init__(self, bucket, prefix = '.git'):
 		super(S3ObjectStore, self).__init__()
 		self.bucket = bucket
-		self.prefix = prefix.rstrip('/')
+		self.prefix = prefix
 
 	def contains_loose(self, sha):
 		"""Check if a particular object is present by SHA1 and is loose."""
@@ -123,7 +123,7 @@ class S3ObjectStore(BaseObjectStore):
 		return False
 
 	def __iter__(self):
-		path_prefix = '%s/objects/' % self.prefix
+		path_prefix = '%sobjects/' % self.prefix
 		path_prefix_len = len(path_prefix)
 
 		# valid keys look likes this: "path_prefix + 2 bytes sha1 digest + /
@@ -159,7 +159,7 @@ class S3ObjectStore(BaseObjectStore):
 			self.add_object(obj)
 
 	def _calc_object_path(self, hexsha):
-		path = '%s/objects/%s/%s' % (self.prefix, hexsha[0:2], hexsha[2:40])
+		path = '%sobjects/%s/%s' % (self.prefix, hexsha[0:2], hexsha[2:40])
 		return path
 
 
@@ -167,7 +167,7 @@ class S3Repo(BaseRepo):
 	"""A dulwich repository stored in an S3 bucket. Uses S3RefsContainer and S3ObjectStore
 	as a backend. Does not do any sorts of locking, see documentation of S3RefsContainer
 	and S3ObjectStore for details."""
-	def __init__(self, bucket, prefix = '.git/'):
+	def __init__(self, bucket, prefix = '.git'):
 		object_store = S3ObjectStore(bucket, prefix)
 		refs = S3RefsContainer(bucket, prefix)
 		super(S3Repo, self).__init__(object_store, refs)
