@@ -104,7 +104,10 @@ class S3Handler(GitRemoteHandler):
 		local.fetch(self.remote_repo, determine_wants, self.report_progress)
 
 		# uploaded everything, update refs next
-		# FIXME: Update refs
+		# FIXME: ACQUIRE LOCK HERE
+		head = local[src]
+		log.debug('setting %s on remote to %s' % (dst, head.sha().hexdigest()))
+		self.remote_repo[dst] = head
 
 		# report pushing went okay
 		print "ok %s" % dst
