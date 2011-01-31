@@ -51,6 +51,7 @@ class S3RefsContainer(RefsContainer):
 	def __init__(self, bucket, prefix = '.git/'):
 		self.bucket = bucket
 		self.prefix = prefix.rstrip('/')
+		super(S3RefsContainer, self).__init__()
 
 	def _calc_ref_path(self, ref):
 		return '%s/%s' % (self.prefix, ref)
