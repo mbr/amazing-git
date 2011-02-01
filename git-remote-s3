@@ -97,8 +97,8 @@ class S3Handler(GitRemoteHandler):
 		# "push" == we use .fetch() to "fetch" from the local TO the remote ("target"),
 		# then update the refs
 		def determine_wants(heads):
-			wants = [ heads[src] ]
-			log.debug('pushing %r, wants is using %r' % (src, wants))
+			wants = [heads[src]]
+			log.debug('pushing %r, wants is %r' % (src, wants))
 			return wants
 
 		log.debug('calling fetch')
