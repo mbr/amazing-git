@@ -81,8 +81,9 @@ class S3Handler(GitRemoteHandler):
 	def git_list(self, *args):
 		log.debug('listing refs')
 		for name, hash in self.remote_repo.get_refs().iteritems():
-			log.debug('ref found: %s %s' % (name, hash))
-			print '%s %s' % (hash, name)
+			output = '%s %s' % (hash, name)
+			log.debug(output)
+			print output
 		print
 
 	def git_push(self, target):
