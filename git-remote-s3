@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+import os
+
 import logbook
 
 from dulwich import pack
@@ -29,6 +31,7 @@ class S3Handler(GitRemoteHandler):
 	# lazy attributes, instantiate when we need them
 	_bucket = None
 	_remote_repo = None
+	_local_repo = None
 
 	def __init__(self, *args, **kwargs):
 		super(S3Handler, self).__init__(*args, **kwargs)
@@ -78,6 +81,20 @@ class S3Handler(GitRemoteHandler):
 
 		return self._remote_repo
 
+	@property
+	def local_repo(self):
+		if not self._local_repo:
+			GIT_DIR = os.getenv('GIT_DIR')
+			if not GIT_DIR:
+				log.debug('GIT_DIR not present in environment, falling back to .git')
+				self._local_repo = Repo('.git')
+			else:
+				assert(GIT_DIR)
+				self._local_repo = Repo(GIT_DIR)
+			log.debug('local repository instance on %r' % GIT_DIR)
+
+		return self._local_repo
+
 	def git_list(self, *args):
 		log.debug('listing refs')
 		for name, hash in self.remote_repo.get_refs().iteritems():
@@ -90,9 +107,6 @@ class S3Handler(GitRemoteHandler):
 		log.debug('push args: %s' % target)
 		src, dst = target.split(':')
 		log.debug('push: %s to %s' % (src, dst))
-
-		# the local repository
-		local = Repo('.git')
 
 		# "push" == we use .fetch() to "fetch" from the local TO the remote ("target"),
 		# then update the refs
@@ -107,11 +121,11 @@ class S3Handler(GitRemoteHandler):
 		# will fetch too many Blobs. Namely, it will correctly determine missing commits,
 		# but then transfer all files in these commits, even though they may already be
 		# contained in commits in common that are not in the repository.
-		local.fetch(self.remote_repo, determine_wants, self.report_progress)
+		self.local_repo.fetch(self.remote_repo, determine_wants, self.report_progress)
 
 		# uploaded everything, update refs next
 		# FIXME: ACQUIRE LOCK HERE
-		head = local[src]
+		head = self.local_repo[src]
 		log.debug('setting %s on remote to %s' % (dst, head.sha().hexdigest()))
 		self.remote_repo[dst] = head
 		# FIXME: RELEASE LOCK HERE
