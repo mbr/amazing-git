@@ -102,6 +102,11 @@ class S3Handler(GitRemoteHandler):
 			return wants
 
 		log.debug('calling fetch')
+
+		# NOTE: The "MissingObjectsFinder" in the dulwich version used (as of Feb 1st, 2011
+		# will fetch too many Blobs. Namely, it will correctly determine missing commits,
+		# but then transfer all files in these commits, even though they may already be
+		# contained in commits in common that are not in the repository.
 		local.fetch(self.remote_repo, determine_wants, self.report_progress)
 
 		# uploaded everything, update refs next
@@ -109,6 +114,7 @@ class S3Handler(GitRemoteHandler):
 		head = local[src]
 		log.debug('setting %s on remote to %s' % (dst, head.sha().hexdigest()))
 		self.remote_repo[dst] = head
+		# FIXME: RELEASE LOCK HERE
 
 		# report pushing went okay
 		print "ok %s" % dst
