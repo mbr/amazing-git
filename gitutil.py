@@ -112,6 +112,8 @@ class GitRemoteHandler(object):
 			line = sys.stdin.readline()
 			if '' == line: break # EOF
 			if '' == line.strip(): break # empty line ends as well
+			# FIXME: batches need to be read by some commands
+			#        use a decorator?
 			try:
 				self.handle_command(line.rstrip(os.linesep))
 			except Exception, e:
