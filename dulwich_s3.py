@@ -109,21 +109,6 @@ class S3RefsContainer(RefsContainer, S3PrefixFS):
 		return True
 
 
-class DecompressingBuffer(object):
-	def __init__(self):
-		self.decomp = zlib.decompressobj()
-		self.buf = StringIO()
-
-	def write(self, data):
-		self.buf.write(self.decomp.decompress(data))
-
-	def close(self):
-		self.buf.write(self.decomp.flush())
-
-	def get_contents(self):
-		return self.buf.getvalue()
-
-
 class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 	"""Storage backend on an Amazon S3 bucket.
 
@@ -158,11 +143,8 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 
 	def __getitem__(self, name):
 		key = self.bucket.get_key(calc_object_path(self.prefix, name))
-		buf = DecompressingBuffer()
-		key.get_contents_to_file(buf)
-		raw_string = buf.get_contents()
 
-		return ShaFile.from_raw_string(int(key.metadata['type_num']), raw_string)
+		return ShaFile.from_file(StringIO(key.get_contents_as_string()))
 
 	def get_raw(self, name):
 		ret = self[name]
