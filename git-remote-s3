@@ -121,6 +121,8 @@ class S3Handler(GitRemoteHandler):
 		# will fetch too many Blobs. Namely, it will correctly determine missing commits,
 		# but then transfer all files in these commits, even though they may already be
 		# contained in commits in common that are not in the repository.
+		# FIXME: speed this up using a multi-threaded uploader or something similiar
+		#        (thread safety: needs a new connection/s3 bucket for every thread!)
 		self.local_repo.fetch(self.remote_repo, determine_wants, self.report_progress)
 
 		# uploaded everything, update refs next
