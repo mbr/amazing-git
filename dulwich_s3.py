@@ -151,6 +151,10 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 		   still cause it to be uploaded, overwriting the old with the same data."""
 		k = self.bucket.new_key(calc_object_path(self.prefix, obj.sha().hexdigest()))
 
+		# add metadata
+		k.set_metadata('type_num', str(obj.type_num))
+		k.set_metadata('raw_length', str(obj.raw_length()))
+
 		# actual upload
 		k.set_contents_from_string(obj.as_legacy_object())
 
