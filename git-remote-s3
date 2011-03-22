@@ -138,7 +138,7 @@ class S3Handler(GitRemoteHandler):
 
 	def git_fetch(self, sha1, name = None):
 		log.debug('fetching %s %s' % (sha1, name))
-		log.debug('%r' % self.remote_repo[sha1])
+		log.debug('which is: %r' % self.remote_repo[sha1])
 
 		# fetch from remote to local repo
 		#import rpdb2; rpdb2.start_embedded_debugger('s3')
