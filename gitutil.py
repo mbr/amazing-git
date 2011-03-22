@@ -41,7 +41,7 @@ class GitRemoteHandler(object):
 	def __init__(self):
 		self.args = sys.argv[1:]
 
-		self.remote_name = None
+		self.remote_name = 'origin' # no name happens on clone, default is origin
 		self.remote_address = None
 		if 2 == len(self.args):
 			self.remote_address = self.args[1]
