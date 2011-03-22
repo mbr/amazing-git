@@ -1,3 +1,6 @@
+from binascii import hexlify, unhexlify
+import zlib
+
 # for the object store
 from dulwich.object_store import BaseObjectStore, ShaFile
 from cStringIO import StringIO
@@ -101,6 +104,71 @@ class S3RefsContainer(RefsContainer, S3PrefixFS):
 
 		k.delete()
 		return True
+
+
+class StoredSHA1Digest(object):
+	def __init__(self, digest):
+		assert(20 == len(digest))
+		self._digest = digest
+
+	def digest(self):
+		return self._digest
+
+	def hexdigest(self):
+		return hexlify(self._digest)
+
+	@classmethod
+	def from_hexdigest(class_, hexdigest):
+		return class_(unhexlify(hexdigest))
+
+
+class DecompressingBuffer(object):
+	def __init__(self):
+		self.decomp = zlib.decompressobj()
+		self.buf = StringIO()
+
+	def write(self, data):
+		self.buf.write(self.decomp.decompress(data))
+
+	def close(self):
+		self.buf.write(self.decomp.flush())
+
+
+class S3ShaFile(object):
+	def __init__(self, bucket, prefix, sha):
+		self._sha = sha
+		self._prefix = prefix
+		self._bucket = bucket
+		self._key = None
+		self._buf = None
+
+	@property
+	def key(self):
+		if not self._key:
+			path = calc_object_path(self._prefix, self._sha)
+			self._key = self._bucket.get_key(path)
+		return self._key
+
+	def sha(self):
+		return StoredSHA1Digest.from_hexdigest(self._sha)
+
+	@property
+	def _raw_string(self):
+		if not self._buf:
+			rawbuf = DecompressingBuffer()
+			raw = self._key.get_contents_to_file(rawbuf)
+			self._buf = rawbuf.buf.getvalue()
+		return self._buf
+
+	@property
+	def type_num(self):
+		return int(self.key.metadata['type_num'])
+
+	def raw_length(self):
+		return int(self.key.metadata['raw_length'])
+
+	def as_raw_string(self):
+		return self._raw_string
 
 
 class S3ObjectStore(BaseObjectStore, S3PrefixFS):
