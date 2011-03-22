@@ -116,7 +116,7 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 
 	def contains_loose(self, sha):
 		"""Check if a particular object is present by SHA1 and is loose."""
-		return bool(self.bucket.get_key(self._calc_object_path(sha)))
+		return bool(self.bucket.get_key(calc_object_path(self.prefix, sha)))
 
 	def contains_packed(self, sha):
 		"""Check if a particular object is present by SHA1 and is packed."""
@@ -137,7 +137,7 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 
 	def __getitem__(self, name):
 		# create ShaFile from downloaded contents
-		k = self.bucket.new_key(self._calc_object_path(name))
+		k = self.bucket.new_key(calc_object_path(self.prefix, name))
 		buf = k.get_contents_as_string()
 
 		return ShaFile.from_file(StringIO(buf))
@@ -149,7 +149,7 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 	def add_object(self, obj):
 		"""Adds object the repository. Adding an object that already exists will
 		   still cause it to be uploaded, overwriting the old with the same data."""
-		k = self.bucket.new_key(self._calc_object_path(obj.sha().hexdigest()))
+		k = self.bucket.new_key(calc_object_path(self.prefix, obj.sha().hexdigest()))
 
 		# actual upload
 		k.set_contents_from_string(obj.as_legacy_object())
@@ -157,11 +157,6 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 	def add_objects(self, objects):
 		for obj, path in objects:
 			self.add_object(obj)
-
-	def _calc_object_path(self, hexsha):
-		path = '%sobjects/%s/%s' % (self.prefix, hexsha[0:2], hexsha[2:40])
-		return path
-
 
 class S3Repo(BaseRepo):
 	"""A dulwich repository stored in an S3 bucket. Uses S3RefsContainer and S3ObjectStore
@@ -171,3 +166,9 @@ class S3Repo(BaseRepo):
 		object_store = S3ObjectStore(bucket, prefix)
 		refs = S3RefsContainer(bucket, prefix)
 		super(S3Repo, self).__init__(object_store, refs)
+
+
+def calc_object_path(prefix, hexsha):
+	# FIXME: make this a method again?
+	path = '%sobjects/%s/%s' % (prefix, hexsha[0:2], hexsha[2:40])
+	return path
