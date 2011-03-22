@@ -120,42 +120,8 @@ class DecompressingBuffer(object):
 	def close(self):
 		self.buf.write(self.decomp.flush())
 
-
-class S3ShaFile(object):
-	def __init__(self, bucket, prefix, sha):
-		self._sha = sha
-		self._prefix = prefix
-		self._bucket = bucket
-		self._key = None
-		self._buf = None
-
-	@property
-	def key(self):
-		if not self._key:
-			path = calc_object_path(self._prefix, self._sha)
-			self._key = self._bucket.get_key(path)
-		return self._key
-
-	def sha(self):
-		return FixedSha(self._sha)
-
-	@property
-	def _raw_string(self):
-		if not self._buf:
-			rawbuf = DecompressingBuffer()
-			raw = self._key.get_contents_to_file(rawbuf)
-			self._buf = rawbuf.buf.getvalue()
-		return self._buf
-
-	@property
-	def type_num(self):
-		return int(self.key.metadata['type_num'])
-
-	def raw_length(self):
-		return int(self.key.metadata['raw_length'])
-
-	def as_raw_string(self):
-		return self._raw_string
+	def get_contents(self):
+		return self.buf.getvalue()
 
 
 class S3ObjectStore(BaseObjectStore, S3PrefixFS):
@@ -191,11 +157,12 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 		return []
 
 	def __getitem__(self, name):
-		# create ShaFile from downloaded contents
-		k = self.bucket.new_key(calc_object_path(self.prefix, name))
-		buf = k.get_contents_as_string()
+		key = self.bucket.get_key(calc_object_path(self.prefix, name))
+		buf = DecompressingBuffer()
+		key.get_contents_to_file(buf)
+		raw_string = buf.get_contents()
 
-		return ShaFile.from_file(StringIO(buf))
+		return ShaFile.from_raw_string(int(key.metadata['type_num']), raw_string)
 
 	def get_raw(self, name):
 		ret = self[name]
