@@ -142,7 +142,7 @@ class S3Handler(GitRemoteHandler):
 
 if __name__ == '__main__':
 	try:
-		loghandler = logbook.FileHandler('git-remote-test.log', encoding = 'utf-8')
+		loghandler = logbook.FileHandler('git-remote-s3.log', encoding = 'utf-8')
 		S3Handler().run()
 	except HandlerException, e:
 		log.critical(e)
