@@ -11,6 +11,9 @@ from dulwich.repo import RefsContainer
 # for the repo
 from dulwich.repo import BaseRepo
 
+# for S3ShaFile
+from dulwich.objects import FixedSha
+
 """Support for dulwich (git) storage structures on Amazon S3.
 
 This module allows replicating the structure of a git repository on an S3 bucket. This
@@ -106,22 +109,6 @@ class S3RefsContainer(RefsContainer, S3PrefixFS):
 		return True
 
 
-class StoredSHA1Digest(object):
-	def __init__(self, digest):
-		assert(20 == len(digest))
-		self._digest = digest
-
-	def digest(self):
-		return self._digest
-
-	def hexdigest(self):
-		return hexlify(self._digest)
-
-	@classmethod
-	def from_hexdigest(class_, hexdigest):
-		return class_(unhexlify(hexdigest))
-
-
 class DecompressingBuffer(object):
 	def __init__(self):
 		self.decomp = zlib.decompressobj()
@@ -150,7 +137,7 @@ class S3ShaFile(object):
 		return self._key
 
 	def sha(self):
-		return StoredSHA1Digest.from_hexdigest(self._sha)
+		return FixedSha(self._sha)
 
 	@property
 	def _raw_string(self):
