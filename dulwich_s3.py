@@ -164,6 +164,7 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 		for obj, path in objects:
 			self.add_object(obj)
 
+
 class S3Repo(BaseRepo):
 	"""A dulwich repository stored in an S3 bucket. Uses S3RefsContainer and S3ObjectStore
 	as a backend. Does not do any sorts of locking, see documentation of S3RefsContainer
