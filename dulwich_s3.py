@@ -14,6 +14,9 @@ from dulwich.repo import BaseRepo
 # for S3ShaFile
 from dulwich.objects import FixedSha
 
+import logbook
+log = logbook.Logger('git-remote-s3')
+
 """Support for dulwich (git) storage structures on Amazon S3.
 
 This module allows replicating the structure of a git repository on an S3 bucket. This
