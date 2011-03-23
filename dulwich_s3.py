@@ -143,10 +143,10 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 
 	def get_raw(self, name):
 		key = self.bucket.get_key(calc_object_path(self.prefix, name))
-		uncomp = zlib.decompress(key.get_contents_as_string())
+		log.debug('retrieving %s from server' % key)
 
-		log.debug('raw key requested: %r' % key)
-		return int(key.metadata['type_num']), uncomp
+		uncomp = zlib.decompress(key.get_contents_as_string())
+		return int(key.metadata['type_num']), uncomp[uncomp.find('\0')+1:]
 
 	def add_object(self, obj):
 		"""Adds object the repository. Adding an object that already exists will
