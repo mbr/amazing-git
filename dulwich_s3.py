@@ -31,7 +31,7 @@ achieved with almost no effort: Since uploaded objects are named after their has
 object file will always have the same contents if it has its name. Upload the same object
 multiple times by accident is therefore not an issue.
 
-When manipulating refs however, you will most likely to implement a locking mechanism.
+When manipulating refs however, you will most likely need to implement a locking mechanism.
 """
 
 class S3PrefixFS(object):
