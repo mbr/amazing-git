@@ -165,6 +165,19 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 			self.add_object(obj)
 
 
+class S3CachedObjectStore(S3ObjectStore):
+	def __init__(self, *args, **kwargs):
+		super(S3CachedObjectStore, self).__init__(*args, **kwargs)
+		self.__cache = None
+
+	def __getitem__(self, name):
+		self.__cache = super(S3CachedObjectStore, self).__getitem__(name)
+		return self.__cache
+
+	def get_last_cached_object(self):
+		return self.__cache
+
+
 class S3Repo(BaseRepo):
 	"""A dulwich repository stored in an S3 bucket. Uses S3RefsContainer and S3ObjectStore
 	as a backend. Does not do any sorts of locking, see documentation of S3RefsContainer
