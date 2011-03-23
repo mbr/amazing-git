@@ -11,9 +11,6 @@ from dulwich.repo import RefsContainer
 # for the repo
 from dulwich.repo import BaseRepo
 
-# for S3ShaFile
-from dulwich.objects import FixedSha
-
 import logbook
 log = logbook.Logger('git-remote-s3')
 
