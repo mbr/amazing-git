@@ -144,14 +144,12 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 	def packs(self):
 		return []
 
-	def __getitem__(self, name):
-		key = self.bucket.get_key(calc_object_path(self.prefix, name))
-
-		return ShaFile.from_file(StringIO(key.get_contents_as_string()))
-
 	def get_raw(self, name):
-		ret = self[name]
-		return ret.type_num, ret.as_raw_string()
+		key = self.bucket.get_key(calc_object_path(self.prefix, name))
+		uncomp = zlib.decompress(key.get_contents_as_string())
+
+		log.debug('raw key requested: %r' % key)
+		return int(key.metadata['type_num']), uncomp
 
 	def add_object(self, obj):
 		"""Adds object the repository. Adding an object that already exists will
