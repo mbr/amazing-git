@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 import os
 
 import logbook
@@ -14,6 +13,10 @@ from boto.exception import S3ResponseError
 from gitutil import GitRemoteHandler, parse_s3_url, HandlerException, merge_git_config
 
 from dulwich_s3 import S3Repo
+
+if os.getenv('DEBUG_AMAZING_GIT'):
+	import rpdb2
+	rpdb2.start_embedded_debugger('s3')
 
 log = logbook.Logger('git-remote-s3')
 
