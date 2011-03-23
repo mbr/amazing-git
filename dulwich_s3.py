@@ -183,9 +183,30 @@ class S3Repo(BaseRepo):
 	as a backend. Does not do any sorts of locking, see documentation of S3RefsContainer
 	and S3ObjectStore for details."""
 	def __init__(self, bucket, prefix = '.git'):
-		object_store = S3ObjectStore(bucket, prefix)
+		object_store = S3CachedObjectStore(bucket, prefix)
 		refs = S3RefsContainer(bucket, prefix)
 		super(S3Repo, self).__init__(object_store, refs)
+
+	def fetch(self, target, determine_wants, progress = None):
+		# add objects one-by-one, to avoid downloading twice
+		wants = determine_wants(self.get_refs())
+		gw = target.get_graph_walker()
+		log.debug('graph walker %r' % gw)
+		haves = self.object_store.find_common_revisions(gw)
+		log.debug('have %r' % haves)
+
+		for obj_id, path in self.object_store.find_missing_objects(haves, wants, progress, None):
+			# at this point, we have the object fetched, add it to the object store
+			# the dulwich code fetches twice needlessly here
+			obj = self.object_store.get_last_cached_object()
+			if obj.id != obj_id:
+				log.warning('cache miss on %r' % obj_id)
+				obj = self.object_store[obj_id]
+
+			log.debug('adding %r' % obj)
+			target.object_store.add_object(obj)
+
+		return self.get_refs()
 
 
 def calc_object_path(prefix, hexsha):
