@@ -143,38 +143,20 @@ class S3Handler(GitRemoteHandler):
 		log.debug('fetching %s %s' % (sha1, name))
 		log.debug('which is: %r' % self.remote_repo[sha1])
 
-		# parse the name
-		#prefix = 'refs/heads/'
-		#assert(name.startswith(prefix))
-		#remote_branch = name[len(prefix):]
-		#log.debug('fetching remote head %r' % remote_branch)
-
 		# fetch from remote to local repo
 		#import rpdb2; rpdb2.start_embedded_debugger('s3')
 		# FIXME: the iterators involved in creating a pack will, at some point
 		#        iterate over all ShaFiles at this point. creation of an ShaFile
 		#        always entails downloading the complete object at this point
-		#        somehow, these things need either be proxied or dulwich be patched
+		#        best solution seems to be to patch dulwich
+		# FIXME: the resulting pack file must have a .keep added, or git might gc
+		#        it before setting refs
 		self.remote_repo.fetch(self.local_repo, lambda _: [sha1], self.report_progress)
-
-		# set ref before
-		# XXX: maybe remote HEAD is missing?
-		#refname = 'refs/remotes/%s/%s' % (self.remote_name, remote_branch)
-		#self.local_repo[refname] = sha1
-		#log.debug('setting ref: %s' % refname)
-
-		# FIXME: a clone does not work at all - all objects get fetched (see above)
-		#        then the refs are set. however, git seems to rc or repack afterwards
-		#        caused all objects to be neatly packed, then deleted
-		# XXX: what's missing?
 
 		log.debug('finishing fetch')
 
 		# end with blank line
 		print
-
-		# XXX: packs will disappear now
-		import rpdb2; rpdb2.start_embedded_debugger('s3')
 
 
 	def report_progress(self, msg):

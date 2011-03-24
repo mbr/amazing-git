@@ -202,46 +202,6 @@ class S3Repo(BaseRepo):
 		log.debug('Initializing S3 repository')
 		self.refs.set_symbolic_ref('HEAD', 'refs/heads/master')
 
-	def fetch(self, target, determine_wants, progress = None):
-		# add objects one-by-one, to avoid downloading twice
-		wants = determine_wants(self.get_refs())
-		gw = target.get_graph_walker()
-		log.debug('graph walker %r' % gw)
-		haves = self.object_store.find_common_revisions(gw)
-		log.debug('have %r' % haves)
-
-		# shas to pack
-		loose_object_shas = set()
-
-		for obj_id, path in self.object_store.find_missing_objects(haves, wants, progress, None):
-			# at this point, we have the object fetched, add it to the object store
-			# the dulwich code fetches twice needlessly here
-			obj = self.object_store.get_last_cached_object()
-			if obj.id != obj_id:
-				log.warning('cache miss on %r' % obj_id)
-				obj = self.object_store[obj_id]
-
-			log.debug('adding %r' % obj)
-			target.object_store.add_object(obj)
-			loose_object_shas.add((obj.id, path))
-
-		# add loose objects to pack file
-		log.debug('Packing %d objects' % len(loose_object_shas))
-		loose_iter = ObjectStoreIterator(target, iter(loose_object_shas))
-		pack = target.object_store.add_objects(loose_iter)
-
-		# remove loose objects
-		#for sha, path in loose_object_shas:
-		#	log.debug('Removing loose object %s' % sha)
-		#	target.object_store._remove_loose_object(sha)
-
-		log.debug('Wrote pack %r' % pack)
-		with file('%s.keep' % pack._basename, 'w') as keepfile:
-			keepfile.write('dulwich_s3\n')
-			log.debug('Locked pack %r' % pack)
-
-		return self.get_refs()
-
 
 def calc_object_path(prefix, hexsha):
 	# FIXME: make this a method again?
