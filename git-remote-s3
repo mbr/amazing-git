@@ -61,20 +61,23 @@ class S3Handler(GitRemoteHandler):
 
 		log.debug('loaded credentials, final url: http://%s:%s@%s:%s' % (self.remote_key, self.remote_secret, self.remote_bucket, self.remote_prefix))
 
-	@property
-	def bucket(self):
+	def create_bucket(self):
 		try:
-			if not self._bucket:
-				conn = S3Connection(self.remote_key, self.remote_secret)
-				log.debug('Opened S3Connection %r' % conn)
-				self._bucket = conn.get_bucket(self.remote_bucket)
-				log.debug('Got bucket: %r' % self._bucket)
+			conn = S3Connection(self.remote_key, self.remote_secret)
+			log.debug('Opened S3Connection %r' % conn)
+			bucket = conn.get_bucket(self.remote_bucket)
+			log.debug('Got bucket: %r' % self._bucket)
 		except S3ResponseError, e:
 			if 'InvalidAccessKeyId' == e.error_code: raise HandlerException('S3: Unknown access key: "%s"' % self.remote_key)
 			if 'SignatureDoesNotMatch' == e.error_code: raise HandlerException('S3: Signature mismtach: Possibly wrong secret key for access key "%s"' % self.remote_key)
 			if 'NoSuchBucket' == e.error_code: raise HandlerException('S3: No such bucket: %s' % self.remote_bucket)
 			raise HandlerException('S3: Error: %s' % e.error_message)
+		return bucket
 
+	@property
+	def bucket(self):
+		if not self._bucket:
+			self._bucket = self.create_bucket()
 		return self._bucket
 
 	@property
