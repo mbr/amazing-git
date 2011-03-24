@@ -33,7 +33,6 @@ class S3Handler(GitRemoteHandler):
 	# FIXME: use fallback to use smart protocol for what we can actually push?
 
 	# lazy attributes, instantiate when we need them
-	_bucket = None
 	_remote_repo = None
 	_local_repo = None
 
@@ -66,7 +65,7 @@ class S3Handler(GitRemoteHandler):
 			conn = S3Connection(self.remote_key, self.remote_secret)
 			log.debug('Opened S3Connection %r' % conn)
 			bucket = conn.get_bucket(self.remote_bucket)
-			log.debug('Got bucket: %r' % self._bucket)
+			log.debug('Got bucket: %r' % bucket)
 		except S3ResponseError, e:
 			if 'InvalidAccessKeyId' == e.error_code: raise HandlerException('S3: Unknown access key: "%s"' % self.remote_key)
 			if 'SignatureDoesNotMatch' == e.error_code: raise HandlerException('S3: Signature mismtach: Possibly wrong secret key for access key "%s"' % self.remote_key)
