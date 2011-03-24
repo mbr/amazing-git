@@ -82,7 +82,7 @@ class S3RefsContainer(RefsContainer, S3PrefixFS):
 		sref = SYMREF + other
 		log.debug('setting symbolic ref %s to %r' % (name, sref))
 		k = self.bucket.new_key(self._calc_ref_path(name))
-		k.set_contents_from_string()
+		k.set_contents_from_string(sref)
 
 	def set_if_equals(self, name, old_ref, new_ref):
 		if old_ref is not None and self.read_loose_ref(name) != old_ref:
