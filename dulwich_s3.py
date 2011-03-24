@@ -65,7 +65,9 @@ class S3RefsContainer(RefsContainer, S3PrefixFS):
 	def allkeys(self):
 		path_prefix = '%srefs' % self.prefix
 		sublen = len(path_prefix) - 4
-		return [k.name[sublen:] for k in self.bucket.get_all_keys(prefix = path_prefix) if not k.name.endswith('/')]
+		refs = [k.name[sublen:] for k in self.bucket.get_all_keys(prefix = path_prefix) if not k.name.endswith('/')]
+		if self.bucket.get_key(self._calc_ref_path('HEAD')): refs.append('HEAD')
+		return refs
 
 	def read_loose_ref(self, name):
 		k = self.bucket.get_key(self._calc_ref_path(name))
