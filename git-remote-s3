@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os
+import socket
 
 import logbook
 
@@ -10,7 +11,7 @@ from dulwich.repo import Repo, BaseRepo
 from boto.s3.connection import S3Connection
 from boto.exception import S3ResponseError
 
-from gitutil import GitRemoteHandler, parse_s3_url, HandlerException, merge_git_config
+from gitutil import GitRemoteHandler, parse_s3_url, HandlerException, merge_git_config, multiline_command
 
 from dulwich_s3 import S3Repo
 
@@ -139,21 +140,33 @@ class S3Handler(GitRemoteHandler):
 		print "ok %s" % dst
 		print
 
-	def git_fetch(self, sha1, name = None):
-		log.debug('fetching %s %s' % (sha1, name))
-		log.debug('which is: %r' % self.remote_repo[sha1])
+	@multiline_command
+	def git_fetch(self, lines):
+		for line in lines:
+			args = line.split(' ')
+			assert('fetch' == args.pop(0))
+			sha1 = args.pop(0)
+			name = args.pop(0) if args else None
 
-		# fetch from remote to local repo
-		#import rpdb2; rpdb2.start_embedded_debugger('s3')
-		# FIXME: the iterators involved in creating a pack will, at some point
-		#        iterate over all ShaFiles at this point. creation of an ShaFile
-		#        always entails downloading the complete object at this point
-		#        best solution seems to be to patch dulwich
-		# FIXME: the resulting pack file must have a .keep added, or git might gc
-		#        it before setting refs
-		self.remote_repo.fetch(self.local_repo, lambda _: [sha1], self.report_progress)
+			log.debug('fetching %s %s' % (sha1, name))
+			log.debug('which is: %r' % self.remote_repo[sha1])
 
-		log.debug('finishing fetch')
+			# fetch from remote to local repo
+			#import rpdb2; rpdb2.start_embedded_debugger('s3')
+			# FIXME: the iterators involved in creating a pack will, at some point
+			#        iterate over all ShaFiles at this point. creation of an ShaFile
+			#        always entails downloading the complete object at this point
+			#        best solution seems to be to patch dulwich
+			# FIXME: the resulting pack file must have a .keep added, or git might gc
+			#        it before setting refs
+			msg = 'fetch-pack %d on %s' % (os.getpid(), socket.gethostname())
+			log.debug('keep message is %r' % msg)
+			refs, keepfile = self.remote_repo.fetch_and_keep(self.local_repo, lambda _: [sha1], self.report_progress, msg=msg)
+			log.debug('keeping pack %s' % keepfile)
+			print "lock %s" % keepfile
+
+			log.debug('finishing fetch')
+			#import rpdb2; rpdb2.start_embedded_debugger('s3')
 
 		# end with blank line
 		print
