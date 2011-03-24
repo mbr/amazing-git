@@ -6,7 +6,7 @@ from dulwich.object_store import BaseObjectStore, ShaFile
 from cStringIO import StringIO
 
 # for the refstore
-from dulwich.repo import RefsContainer
+from dulwich.repo import RefsContainer, SYMREF
 
 # for the repo
 from dulwich.repo import BaseRepo
@@ -77,8 +77,10 @@ class S3RefsContainer(RefsContainer, S3PrefixFS):
 		return {}
 
 	def set_symbolic_ref(self, name, other):
-		# TODO: support symbolic refs
-		raise NotImplementedError(self.set_symbolic_ref)
+		sref = SYMREF + other
+		log.debug('setting symbolic ref %s to %r' % (name, sref))
+		k = self.bucket.new_key(self._calc_ref_path(name))
+		k.set_contents_from_string()
 
 	def set_if_equals(self, name, old_ref, new_ref):
 		if old_ref is not None and self.read_loose_ref(name) != old_ref:
