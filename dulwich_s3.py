@@ -244,6 +244,5 @@ class S3Repo(BaseRepo):
 
 
 def calc_object_path(prefix, hexsha):
-	# FIXME: make this a method again?
 	path = '%sobjects/%s/%s' % (prefix, hexsha[0:2], hexsha[2:40])
 	return path
