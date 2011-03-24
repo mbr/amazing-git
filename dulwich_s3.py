@@ -6,6 +6,7 @@ from Queue import Queue
 
 # for the object store
 from dulwich.object_store import BaseObjectStore, ShaFile, ObjectStoreIterator
+from dulwich.objects import Blob
 from cStringIO import StringIO
 
 # for the refstore
@@ -212,14 +213,21 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 class S3CachedObjectStore(S3ObjectStore):
 	def __init__(self, *args, **kwargs):
 		super(S3CachedObjectStore, self).__init__(*args, **kwargs)
-		self.__cache = None
+		self.cache = {}
 
 	def __getitem__(self, name):
-		self.__cache = super(S3CachedObjectStore, self).__getitem__(name)
-		return self.__cache
+		if name in self.cache:
+			log.debug('Cache hit on %s' % name)
+			return self.cache[name]
 
-	def get_last_cached_object(self):
-		return self.__cache
+		obj = super(S3CachedObjectStore, self).__getitem__(name)
+		# do not store blobs
+		if obj.get_type() == Blob.type_num:
+			log.debug('Not caching Blob %s' % name)
+		else:
+			self.cache[obj.id] = obj
+
+		return obj
 
 
 class S3Repo(BaseRepo):
