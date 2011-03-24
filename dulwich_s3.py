@@ -54,8 +54,8 @@ class S3RefsContainer(RefsContainer, S3PrefixFS):
 
 	It is up to to the user of the container to regulate access, as there is no locking
 	built-in. While updating a single ref is atomic, doing multiple operations is not."""
-	def __init__(self, bucket, prefix = '.git'):
-		self.bucket = bucket
+	def __init__(self, create_bucket, prefix = '.git'):
+		self.bucket = create_bucket()
 		self.prefix = prefix
 		super(S3RefsContainer, self).__init__()
 
@@ -119,9 +119,10 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 	Stores objects on S3, replicating the path structure found usually on a "real"
 	filesystem-based repository. Does not support packs."""
 
-	def __init__(self, bucket, prefix = '.git'):
+	def __init__(self, create_bucket, prefix = '.git'):
 		super(S3ObjectStore, self).__init__()
-		self.bucket = bucket
+		self.bucket = create_bucket()
+		self.create_bucket = create_bucket
 		self.prefix = prefix
 
 	def contains_loose(self, sha):
@@ -186,9 +187,9 @@ class S3Repo(BaseRepo):
 	"""A dulwich repository stored in an S3 bucket. Uses S3RefsContainer and S3ObjectStore
 	as a backend. Does not do any sorts of locking, see documentation of S3RefsContainer
 	and S3ObjectStore for details."""
-	def __init__(self, bucket, prefix = '.git'):
-		object_store = S3CachedObjectStore(bucket, prefix)
-		refs = S3RefsContainer(bucket, prefix)
+	def __init__(self, create_bucket, prefix = '.git'):
+		object_store = S3CachedObjectStore(create_bucket, prefix)
+		refs = S3RefsContainer(create_bucket, prefix)
 
 		# check if repo is initialized
 		super(S3Repo, self).__init__(object_store, refs)

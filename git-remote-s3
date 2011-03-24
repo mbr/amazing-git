@@ -75,15 +75,9 @@ class S3Handler(GitRemoteHandler):
 		return bucket
 
 	@property
-	def bucket(self):
-		if not self._bucket:
-			self._bucket = self.create_bucket()
-		return self._bucket
-
-	@property
 	def remote_repo(self):
 		if not self._remote_repo:
-			self._remote_repo = S3Repo(self.bucket, self.remote_prefix)
+			self._remote_repo = S3Repo(self.create_bucket, self.remote_prefix)
 			log.debug('Instantiated repo: %r' % self._remote_repo)
 
 		return self._remote_repo
