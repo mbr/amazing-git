@@ -4,6 +4,7 @@
 import sys
 import os
 import re
+from functools import wraps
 
 import git # GitPython
 
@@ -62,7 +63,16 @@ class GitRemoteHandler(object):
 
 		self._log.debug('on stdin: %s' % line)
 		if not hasattr(self, 'git_' + command): raise AttributeError('git requested an unsupported command: %s' % command)
-		getattr(self, 'git_' + command)(*args)
+		func = getattr(self, 'git_' + command)
+		if hasattr(func, 'is_git_multiline') and func.is_git_multiline:
+			lines = []
+			# read all until an empty line is encountered
+			while '' != line.rstrip():
+				lines.append(line)
+				line = sys.stdin.readline()
+			func(lines)
+		else:
+			func(*args)
 		try:
 			sys.stdout.flush()
 		except IOError:
@@ -112,8 +122,6 @@ class GitRemoteHandler(object):
 			line = sys.stdin.readline()
 			if '' == line: break # EOF
 			if '' == line.strip(): break # empty line ends as well
-			# FIXME: batches need to be read by some commands
-			#        use a decorator?
 			try:
 				self.handle_command(line.rstrip(os.linesep))
 			except Exception, e:
@@ -121,6 +129,13 @@ class GitRemoteHandler(object):
 				print >>sys.stderr, os.path.basename(sys.argv[0]) + ':', e
 				break
 
+def multiline_command(f):
+	@wraps(f)
+	def wrapper(*args, **kwargs):
+		return f(*args, **kwargs)
+
+	wrapper.is_git_multiline = True
+	return wrapper
 
 s3_url_exp = 's3://(?:(?P<key>[^:@]+)(?::(?P<secret>[^@]*))?@)?(?P<bucket>[^:@]+)(?::(?P<prefix>[^@]*))?$'
 """Regular expression used for matching S3 URLs.
