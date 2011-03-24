@@ -152,21 +152,17 @@ class S3Handler(GitRemoteHandler):
 			log.debug('which is: %r' % self.remote_repo[sha1])
 
 			# fetch from remote to local repo
-			#import rpdb2; rpdb2.start_embedded_debugger('s3')
 			# FIXME: the iterators involved in creating a pack will, at some point
 			#        iterate over all ShaFiles at this point. creation of an ShaFile
 			#        always entails downloading the complete object at this point
 			#        best solution seems to be to patch dulwich
-			# FIXME: the resulting pack file must have a .keep added, or git might gc
-			#        it before setting refs
 			msg = 'fetch-pack %d on %s' % (os.getpid(), socket.gethostname())
 			log.debug('keep message is %r' % msg)
 			refs, keepfile = self.remote_repo.fetch_and_keep(self.local_repo, lambda _: [sha1], self.report_progress, msg=msg)
 			log.debug('keeping pack %s' % keepfile)
 			print "lock %s" % keepfile
 
-			log.debug('finishing fetch')
-			#import rpdb2; rpdb2.start_embedded_debugger('s3')
+			log.debug('fetch finished')
 
 		# end with blank line
 		print
