@@ -189,7 +189,18 @@ class S3Repo(BaseRepo):
 	def __init__(self, bucket, prefix = '.git'):
 		object_store = S3CachedObjectStore(bucket, prefix)
 		refs = S3RefsContainer(bucket, prefix)
+
+		# check if repo is initialized
 		super(S3Repo, self).__init__(object_store, refs)
+
+		try:
+			log.debug('S3Repo with HEAD %r' % refs['HEAD'])
+		except KeyError:
+			self._init()
+
+	def _init(self):
+		log.debug('Initializing S3 repository')
+		self.refs.set_symbolic_ref('HEAD', 'refs/heads/master')
 
 	def fetch(self, target, determine_wants, progress = None):
 		# add objects one-by-one, to avoid downloading twice
