@@ -143,6 +143,12 @@ class S3Handler(GitRemoteHandler):
 		log.debug('fetching %s %s' % (sha1, name))
 		log.debug('which is: %r' % self.remote_repo[sha1])
 
+		# parse the name
+		prefix = 'refs/heads/'
+		assert(name.startswith(prefix))
+		remote_branch = name[len(prefix):]
+		log.debug('fetching remote head %r' % remote_branch)
+
 		# fetch from remote to local repo
 		#import rpdb2; rpdb2.start_embedded_debugger('s3')
 		# FIXME: the iterators involved in creating a pack will, at some point
@@ -153,9 +159,7 @@ class S3Handler(GitRemoteHandler):
 
 		# set ref before
 		# XXX: maybe remote HEAD is missing?
-		# FIXME: first, find out how to find the branch name on the remote
-		refname = 'refs/remotes/%s/%s' % (self.remote_name, 'HEAD') # FIXME
-		refname = 'refs/remotes/origin/HEAD'
+		refname = 'refs/remotes/%s/%s' % (self.remote_name, remote_branch)
 		self.local_repo[refname] = sha1
 		log.debug('setting ref: %s' % refname)
 
