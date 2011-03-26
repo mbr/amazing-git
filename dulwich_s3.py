@@ -5,7 +5,7 @@ import threading
 from Queue import Queue
 
 # for the object store
-from dulwich.object_store import BaseObjectStore, ShaFile, ObjectStoreIterator
+from dulwich.object_store import PackBasedObjectStore, ShaFile, ObjectStoreIterator
 from dulwich.objects import Blob
 from cStringIO import StringIO
 
@@ -117,34 +117,7 @@ class S3RefsContainer(RefsContainer, S3PrefixFS):
 		return True
 
 
-class S3Uploader(threading.Thread):
-	def __init__(self, create_bucket, prefix, work_queue, *args, **kwargs):
-		super(S3Uploader, self).__init__(*args, **kwargs)
-		self.create_bucket = create_bucket
-		self.prefix = prefix
-		self.work_queue = work_queue
-
-	def run(self):
-		log.debug('Started S3Uploader in thread %s' % self.ident)
-
-		bucket = self.create_bucket()
-
-		while True:
-			obj = self.work_queue.get()
-			log.debug('Beginning upload of %r' % obj)
-			k = bucket.new_key(calc_object_path(self.prefix, obj.sha().hexdigest()))
-
-			# add metadata
-			k.set_metadata('type_num', str(obj.type_num))
-			k.set_metadata('raw_length', str(obj.raw_length()))
-
-			# actual upload
-			k.set_contents_from_string(obj.as_legacy_object())
-			log.debug('Done uploading %r' % obj)
-			self.work_queue.task_done()
-
-
-class S3ObjectStore(BaseObjectStore, S3PrefixFS):
+class S3ObjectStore(PackBasedObjectStore, S3PrefixFS):
 	"""Storage backend on an Amazon S3 bucket.
 
 	Stores objects on S3, replicating the path structure found usually on a "real"
@@ -158,22 +131,9 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 		self.uploader_threads = []
 		self.work_queue = Queue()
 
-		self.start_uploader_threads(num_threads)
-
-	def start_uploader_threads(self, num):
-		for i in xrange(num):
-			uploader = S3Uploader(self.create_bucket, self.prefix, self.work_queue)
-			uploader.daemon = True
-			uploader.start()
-			self.uploader_threads.append(uploader)
-
 	def contains_loose(self, sha):
 		"""Check if a particular object is present by SHA1 and is loose."""
 		return bool(self.bucket.get_key(calc_object_path(self.prefix, sha)))
-
-	def contains_packed(self, sha):
-		"""Check if a particular object is present by SHA1 and is packed."""
-		return False
 
 	def __iter__(self):
 		return (k.name[-41:-39] + k.name[-38:] for k in self._s3_keys_iter())
@@ -187,10 +147,6 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 		valid_len = path_prefix_len + 2 + 1 + 38
 		return (k for k in self.bucket.get_all_keys(prefix = path_prefix) if len(k.name) == valid_len)
 
-	@property
-	def packs(self):
-		return []
-
 	def get_raw(self, name):
 		key = self.bucket.get_key(calc_object_path(self.prefix, name))
 		log.debug('retrieving %s from server' % key)
@@ -202,15 +158,6 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 		"""Adds object the repository. Adding an object that already exists will
 		   still cause it to be uploaded, overwriting the old with the same data."""
 		self.add_objects([obj])
-
-	def add_objects(self, objects):
-		for obj, path in objects:
-			log.debug('queueing %r' % obj)
-			self.work_queue.put(obj)
-
-		log.debug('waiting for queue completion...')
-		self.work_queue.join()
-		log.debug('queue complete')
 
 
 class S3CachedObjectStore(S3ObjectStore):
