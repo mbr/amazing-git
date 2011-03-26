@@ -176,13 +176,16 @@ class S3ObjectStore(BaseObjectStore, S3PrefixFS):
 		return False
 
 	def __iter__(self):
+		return (k.name[-41:-39] + k.name[-38:] for k in self._s3_keys_iter())
+
+	def _s3_keys_iter(self):
 		path_prefix = '%sobjects/' % self.prefix
 		path_prefix_len = len(path_prefix)
 
 		# valid keys look likes this: "path_prefix + 2 bytes sha1 digest + /
 		#                              + remaining 38 bytes sha1 digest"
 		valid_len = path_prefix_len + 2 + 1 + 38
-		return (k.name[-41:-39] + k.name[-38:] for k in self.bucket.get_all_keys(prefix = path_prefix) if len(k.name) == valid_len)
+		return (k for k in self.bucket.get_all_keys(prefix = path_prefix) if len(k.name) == valid_len)
 
 	@property
 	def packs(self):
@@ -228,6 +231,12 @@ class S3CachedObjectStore(S3ObjectStore):
 			self.cache[obj.id] = obj
 
 		return obj
+
+	def preload_cache(self):
+		for k in self._s3_keys_iter():
+			if obj.get_type() != Blob.type_num:
+				# FIXME: is this really a good idea?
+
 
 
 class S3Repo(BaseRepo):
