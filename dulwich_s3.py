@@ -1,6 +1,7 @@
 from binascii import hexlify, unhexlify
 import os
 import tempfile
+import time
 import zlib
 
 import threading
@@ -9,7 +10,7 @@ from Queue import Queue
 # for the object store
 from dulwich.object_store import PackBasedObjectStore, ShaFile, ObjectStoreIterator
 from dulwich.objects import Blob
-from dulwich.pack import PackData, iter_sha1, write_pack_index_v2
+from dulwich.pack import PackData, iter_sha1, write_pack_index_v2, Pack, load_pack_index_file
 from cStringIO import StringIO
 
 # for the refstore
@@ -134,6 +135,8 @@ class S3ObjectStore(PackBasedObjectStore, S3PrefixFS):
 		self.uploader_threads = []
 		self.work_queue = Queue()
 
+		self._pack_cache_time = 0
+
 	def add_pack(self):
 		fd, path = tempfile.mkstemp(suffix = ".pack")
 		f = os.fdopen(fd, 'wb')
@@ -143,11 +146,50 @@ class S3ObjectStore(PackBasedObjectStore, S3PrefixFS):
 				os.fsync(fd)
 				f.close()
 
-				self.upload_pack_file(path)
+				return self.upload_pack_file(path)
 			finally:
 				os.remove(path)
 				log.debug('Removed temporary file %s' % path)
 		return f, commit
+
+	def _create_pack(self, path):
+		def data_loader():
+			# read and writable temporary file
+			pack_tmpfile = tempfile.NamedTemporaryFile()
+
+			# download into temporary file
+			log.debug('Downloading pack %s into %s' % (path, pack_tmpfile))
+			pack_key = self.bucket.new_key('%s.pack' % path)
+
+			# store
+			pack_key.get_contents_to_file(pack_tmpfile)
+			log.debug('Filesize is %d' % pack_key.size)
+
+			log.debug('Rewinding...')
+			pack_tmpfile.flush()
+			pack_tmpfile.seek(0)
+
+			return PackData.from_file(pack_tmpfile, pack_key.size)
+
+		def idx_loader():
+			index_tmpfile = tempfile.NamedTemporaryFile()
+
+			log.debug('Downloading pack index %s into %s' % (path, index_tmpfile))
+			index_key = self.bucket.new_key('%s.idx' % path)
+
+			index_key.get_contents_to_file(index_tmpfile)
+			log.debug('Rewinding...')
+			index_tmpfile.flush()
+			index_tmpfile.seek(0)
+
+			return load_pack_index_file(index_tmpfile.name, index_tmpfile)
+
+		p = Pack(path)
+
+		p._data_load = data_loader
+		p._idx_load = idx_loader
+
+		return p
 
 	def contains_loose(self, sha):
 		"""Check if a particular object is present by SHA1 and is loose."""
@@ -187,8 +229,28 @@ class S3ObjectStore(PackBasedObjectStore, S3PrefixFS):
 
 		p.close()
 
+		return self._create_pack(key_prefix)
+
 	def __iter__(self):
 		return (k.name[-41:-39] + k.name[-38:] for k in self._s3_keys_iter())
+
+	def _pack_cache_stale(self):
+		# pack cache is valid for 5 minutes - no fancy checking here
+		return time.time() - self._pack_cache_time > 5*60
+
+	def _load_packs(self):
+		packs = []
+
+		# return pack objects, replace _data_load/_idx_load
+		# when data needs to be fetched
+		log.debug('Loading packs...')
+		for key in self.bucket.get_all_keys(prefix = '%sobjects/pack/' % self.prefix):
+			if key.name.endswith('.pack'):
+				log.debug('Found key %r' % key)
+				packs.append(self._create_pack(key.name[:-len('.pack')]))
+
+		self._pack_cache_time = time.time()
+		return packs
 
 	def _s3_keys_iter(self):
 		path_prefix = '%sobjects/' % self.prefix
@@ -198,13 +260,6 @@ class S3ObjectStore(PackBasedObjectStore, S3PrefixFS):
 		#                              + remaining 38 bytes sha1 digest"
 		valid_len = path_prefix_len + 2 + 1 + 38
 		return (k for k in self.bucket.get_all_keys(prefix = path_prefix) if len(k.name) == valid_len)
-
-	def get_raw(self, name):
-		key = self.bucket.get_key(calc_object_path(self.prefix, name))
-		log.debug('retrieving %s from server' % key)
-
-		uncomp = zlib.decompress(key.get_contents_as_string())
-		return int(key.metadata['type_num']), uncomp[uncomp.find('\0')+1:]
 
 	def add_object(self, obj):
 		"""Adds object the repository. Adding an object that already exists will
