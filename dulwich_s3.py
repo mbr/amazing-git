@@ -1,4 +1,6 @@
 from binascii import hexlify, unhexlify
+import os
+import tempfile
 import zlib
 
 import threading
@@ -7,6 +9,7 @@ from Queue import Queue
 # for the object store
 from dulwich.object_store import PackBasedObjectStore, ShaFile, ObjectStoreIterator
 from dulwich.objects import Blob
+from dulwich.pack import PackData, iter_sha1, write_pack_index_v2
 from cStringIO import StringIO
 
 # for the refstore
@@ -131,9 +134,58 @@ class S3ObjectStore(PackBasedObjectStore, S3PrefixFS):
 		self.uploader_threads = []
 		self.work_queue = Queue()
 
+	def add_pack(self):
+		fd, path = tempfile.mkstemp(suffix = ".pack")
+		f = os.fdopen(fd, 'wb')
+
+		def commit():
+			try:
+				os.fsync(fd)
+				f.close()
+
+				self.upload_pack_file(path)
+			finally:
+				os.remove(path)
+				log.debug('Removed temporary file %s' % path)
+		return f, commit
+
 	def contains_loose(self, sha):
 		"""Check if a particular object is present by SHA1 and is loose."""
 		return bool(self.bucket.get_key(calc_object_path(self.prefix, sha)))
+
+	def upload_pack_file(self, path):
+		p = PackData(path)
+		entries = p.sorted_entries()
+
+		# get the sha1 of the pack, same method as dulwich's move_in_pack()
+		pack_sha = iter_sha1(e[0] for e in entries)
+		key_prefix = calc_pack_prefix(self.prefix, pack_sha)
+		pack_key_name = '%s.pack' % key_prefix
+
+		# FIXME: LOCK HERE? Possibly different pack files could
+		#        have the same shas, depending on compression?
+
+		log.debug('Uploading %s to %s' % (path, pack_key_name))
+
+		pack_key = self.bucket.new_key(pack_key_name)
+		pack_key.set_contents_from_filename(path)
+		index_key_name = '%s.idx' % key_prefix
+
+		index_key = self.bucket.new_key(index_key_name)
+
+		index_fd, index_path = tempfile.mkstemp(suffix = '.idx')
+		try:
+			f = os.fdopen(index_fd, 'wb')
+			write_pack_index_v2(f, entries, p.get_stored_checksum())
+			os.fsync(index_fd)
+			f.close()
+
+			log.debug('Uploading %s to %s' % (index_path, index_key_name))
+			index_key.set_contents_from_filename(index_path)
+		finally:
+			os.remove(index_path)
+
+		p.close()
 
 	def __iter__(self):
 		return (k.name[-41:-39] + k.name[-38:] for k in self._s3_keys_iter())
@@ -203,6 +255,10 @@ class S3Repo(BaseRepo):
 
 def calc_object_path(prefix, hexsha):
 	path = '%sobjects/%s/%s' % (prefix, hexsha[0:2], hexsha[2:40])
+	return path
+
+def calc_pack_prefix(prefix, hexsha):
+	path = '%sobjects/pack/pack-%s' % (prefix, hexsha)
 	return path
 
 def calc_path_id(prefix, path):
