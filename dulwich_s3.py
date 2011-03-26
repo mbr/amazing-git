@@ -232,12 +232,6 @@ class S3CachedObjectStore(S3ObjectStore):
 
 		return obj
 
-	def preload_cache(self):
-		for k in self._s3_keys_iter():
-			if obj.get_type() != Blob.type_num:
-				# FIXME: is this really a good idea?
-
-
 
 class S3Repo(BaseRepo):
 	"""A dulwich repository stored in an S3 bucket. Uses S3RefsContainer and S3ObjectStore
@@ -263,3 +257,7 @@ class S3Repo(BaseRepo):
 def calc_object_path(prefix, hexsha):
 	path = '%sobjects/%s/%s' % (prefix, hexsha[0:2], hexsha[2:40])
 	return path
+
+def calc_path_id(prefix, path):
+	hexsha = path[-41:-39] + path[-38:]
+	return hexsha
